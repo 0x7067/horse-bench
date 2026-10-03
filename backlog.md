@@ -3,6 +3,9 @@
 ## In flight
 ## Queued
 ## Done
+- [x] horse-recordings - Record four horses at 1080p60 (done 2026-10-03)
+  Owner: current Codex task. Capture GPT 6.1, Opus 5.5, Luna 6, Muse Spark as MP4 and provide files in chat.
+  Four 10-second H.264 MP4s captured at fixed 1/60-second timesteps from original HTML. ffprobe confirms 1920x1080, 60fps, 600 frames each; sampled frames show motion. Files: docs/recordings.
 - [x] horse-prefetch - Prefetch neighboring horses (done 2026-10-03)
   Owner: current Codex task. Add versioned prefetch hints for previous and next HTML, verify targets and browser requests, deploy.
   Deployed: all 20 public pages match local HTML. Verified two correctly versioned neighbors per horse and Chrome issued both requests with sec-purpose: prefetch, HTTP 200. Safari not verified.
