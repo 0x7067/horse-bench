@@ -240,5 +240,118 @@
     }
   ],
   "index": "19 cards with harness, model, effort, provider; harness filtering checked in Chrome",
-  "limits": "Canvas creation checked; animation quality not graded. Generated pages require CDN access."
+  "limits": "Canvas creation checked; animation quality not graded. Generated pages require CDN access.",
+  "navigation_overlay": {
+    "inline_javascript": "passed on all 19 published pages",
+    "browser_navigation": [
+      "previous from first to last",
+      "next from last to first",
+      "gallery return"
+    ],
+    "layout": "overlay bounds fit the 500px browser viewport",
+    "source_outputs": "results/ files remain unchanged",
+    "checked_at": "2026-10-03T14:30:44.552986+00:00",
+    "live_pages": [
+      {
+        "page": "index",
+        "status": 200,
+        "matches_local": true
+      },
+      {
+        "page": "claude-haiku-4.5",
+        "status": 200,
+        "matches_local": true
+      },
+      {
+        "page": "claude-opus-5.5-high",
+        "status": 200,
+        "matches_local": true
+      },
+      {
+        "page": "claude-sonnet-5.5-high",
+        "status": 200,
+        "matches_local": true
+      },
+      {
+        "page": "codex-luna-6",
+        "status": 200,
+        "matches_local": true
+      },
+      {
+        "page": "codex-sol-5.6-high",
+        "status": 200,
+        "matches_local": true
+      },
+      {
+        "page": "codex-sol-6.1-high",
+        "status": 200,
+        "matches_local": true
+      },
+      {
+        "page": "jcode-deepseek-v4-flash",
+        "status": 200,
+        "matches_local": true
+      },
+      {
+        "page": "jcode-deepseek-v4-pro",
+        "status": 200,
+        "matches_local": true
+      },
+      {
+        "page": "jcode-glm-5.3-flash",
+        "status": 200,
+        "matches_local": true
+      },
+      {
+        "page": "jcode-space-bunny",
+        "status": 200,
+        "matches_local": true
+      },
+      {
+        "page": "pi-deepseek-v4-flash",
+        "status": 200,
+        "matches_local": true
+      },
+      {
+        "page": "pi-deepseek-v4-pro",
+        "status": 200,
+        "matches_local": true
+      },
+      {
+        "page": "pi-minimax-m3",
+        "status": 200,
+        "matches_local": true
+      },
+      {
+        "page": "pi-muse-1.3",
+        "status": 200,
+        "matches_local": true
+      },
+      {
+        "page": "pi-swe-2",
+        "status": 200,
+        "matches_local": true
+      },
+      {
+        "page": "cline-deepseek-v4-flash",
+        "status": 200,
+        "matches_local": true
+      },
+      {
+        "page": "cline-deepseek-v4-pro",
+        "status": 200,
+        "matches_local": true
+      },
+      {
+        "page": "dsh-deepseek-v4-flash",
+        "status": 200,
+        "matches_local": true
+      },
+      {
+        "page": "dsh-deepseek-v4-pro",
+        "status": 200,
+        "matches_local": true
+      }
+    ]
+  }
 }
