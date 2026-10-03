@@ -698,5 +698,15 @@
       }
     ],
     "limit": "Not yet checked on physical iPhone Safari"
+  },
+  "prefetch": {
+    "pages_checked": 19,
+    "targets": "Exactly previous and next horse, versioned URLs, circular ordering",
+    "browser": "Chrome mobile emulation 390x844",
+    "observed_requests": [
+      "pi-deepseek-v4-pro/?v=8c0c7e7647 HTTP 200",
+      "pi-muse-1.3/?v=8c0c7e7647 HTTP 200"
+    ],
+    "limit": "Prefetch is a browser hint; Safari behavior not verified."
   }
 }

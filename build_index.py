@@ -51,8 +51,13 @@ for run in runs:
         destination.mkdir(exist_ok=True)
         original = source.read_text()
         viewport = '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        index = horses.index(run)
+        prefetch = ''.join(
+            f'<link rel="prefetch" href="../{horses[neighbor % len(horses)]["name"]}/?v={version}" as="document">'
+            for neighbor in [index - 1, index + 1]
+        )
         original = re.sub(r'<meta\b[^>]*\bname\s*=\s*[\"\']viewport[\"\'][^>]*>', '', original, flags=re.IGNORECASE)
-        original = re.sub(r'<head\b[^>]*>', lambda match: match.group() + '\n' + viewport, original, count=1, flags=re.IGNORECASE)
+        original = re.sub(r'<head\b[^>]*>', lambda match: match.group() + '\n' + viewport + '\n' + prefetch, original, count=1, flags=re.IGNORECASE)
         published = re.sub(r"</body\s*>", lambda match: navigation(run) + match.group(), original, count=1, flags=re.IGNORECASE)
         (destination / "index.html").write_text(published)
         action = f'<a href="{html.escape(name)}/?v={version}">Open horse <span aria-hidden="true">↗</span></a>'

@@ -1,6 +1,8 @@
 # Backlog
 
 ## In flight
+- [ ] horse-prefetch - Prefetch neighboring horses (since 2026-10-03)
+  Owner: current Codex task. Add versioned prefetch hints for previous and next HTML, verify targets and browser requests, deploy.
 ## Queued
 ## Done
 - [x] horse-mobile-controls - Normalize mobile horse controls (done 2026-10-03)
