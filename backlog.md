@@ -1,6 +1,8 @@
 # Backlog
 
 ## In flight
+- [ ] horse-mobile-controls - Normalize mobile horse controls (since 2026-10-03)
+  Owner: current Codex task. Two generated pages lack viewport metadata, including MiniMax M3 from the screenshot. Normalize published viewport metadata and verify all pages.
 ## Queued
 ## Done
 - [x] horse-overlay-fix - Fix missing horse navigation overlays (done 2026-10-03)

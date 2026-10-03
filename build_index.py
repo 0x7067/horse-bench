@@ -50,6 +50,9 @@ for run in runs:
         destination = docs / name
         destination.mkdir(exist_ok=True)
         original = source.read_text()
+        viewport = '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        original = re.sub(r'<meta\b[^>]*\bname\s*=\s*[\"\']viewport[\"\'][^>]*>', '', original, flags=re.IGNORECASE)
+        original = re.sub(r'<head\b[^>]*>', lambda match: match.group() + '\n' + viewport, original, count=1, flags=re.IGNORECASE)
         published = re.sub(r"</body\s*>", lambda match: navigation(run) + match.group(), original, count=1, flags=re.IGNORECASE)
         (destination / "index.html").write_text(published)
         action = f'<a href="{html.escape(name)}/?v={version}">Open horse <span aria-hidden="true">↗</span></a>'
