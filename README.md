@@ -40,4 +40,4 @@ See the [Cline CLI guide](https://docs.cline.bot/cli/cli-reference), [ClinePass 
 
 All 19 runs returned HTML. Generated files load Three.js from a CDN, so they need internet access. Inline JavaScript syntax and browser canvas creation were checked; animation quality was not graded. Large raw logs are gzip-compressed. Earlier failed attempts are recorded in `results/attempts/`.
 
-`runs.json` records the configurations. `results.json` records outcomes. Each `results/<run>/` contains the generated HTML and harness logs. `docs/` contains the GitHub Pages gallery and copies of the original HTML. Rebuild the gallery with `python3 build_index.py`. GitHub Pages publishes `main` / `docs`.
+`runs.json` records the configurations. `results.json` records outcomes. Each `results/<run>/` contains the generated HTML and harness logs. `docs/` contains the GitHub Pages gallery and the generated HTML with an icon-only navigation overlay. Previous and next wrap through all runs; the grid button returns to the gallery. Original model outputs stay in `results/`. Rebuild the gallery with `python3 build_index.py`. GitHub Pages publishes `main` / `docs`.

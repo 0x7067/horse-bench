@@ -1,6 +1,8 @@
 # Backlog
 
 ## In flight
+- [ ] horse-navigation - Add navigation overlay to horse pages (since 2026-10-03)
+  Owner: current Codex task. Next: add previous, gallery, and next icon buttons to published horse pages; check navigation in Chrome; commit and deploy.
 ## Queued
 ## Done
 - [x] horse-runs - Add harness selection and run requested horse models (done 2026-10-03)

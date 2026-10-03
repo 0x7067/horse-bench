@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import html
 import json
-import shutil
+import re
 from pathlib import Path
 
 
@@ -11,6 +11,32 @@ docs = root / "docs"
 docs.mkdir(exist_ok=True)
 (docs / ".nojekyll").touch()
 cards = []
+horses = [run for run in runs if (root / "results" / run["name"] / "index.html").exists()]
+
+
+def navigation(run):
+    index = horses.index(run)
+    previous = horses[(index - 1) % len(horses)]["name"]
+    following = horses[(index + 1) % len(horses)]["name"]
+    icons = {
+        "Previous horse": '<path d="m15 18-6-6 6-6"/>',
+        "Gallery": '<rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="3" width="6" height="6" rx="1"/><rect x="3" y="15" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/>',
+        "Next horse": '<path d="m9 18 6-6-6-6"/>',
+    }
+    buttons = "".join(
+        f'<a href="{href}" aria-label="{label}" title="{label}"><svg aria-hidden="true" viewBox="0 0 24 24">{icons[label]}</svg></a>'
+        for label, href in [("Previous horse", f"../{previous}/"), ("Gallery", "../"), ("Next horse", f"../{following}/")]
+    )
+    label = html.escape(f'{run["harness"]} · {run["model"]} · {run["effort"]}')
+    content = f"""<style>
+:host{{position:fixed;bottom:max(20px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:2147483647;max-width:calc(100vw - 24px);font:12px system-ui,sans-serif;color:#e9eddf}}
+nav{{display:flex;align-items:center;gap:8px;background:rgba(16,21,16,.9);border:1px solid #53624b;border-radius:18px;padding:8px;box-shadow:0 6px 30px #0004;backdrop-filter:blur(12px)}}
+a{{display:grid;place-items:center;width:44px;height:44px;flex-shrink:0;color:#d9ef8c;border-radius:12px;text-decoration:none}}a:hover{{background:#344034}}a:focus-visible{{outline:2px solid #d9ef8c;outline-offset:1px}}svg{{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}}
+.info{{min-width:0;max-width:330px;padding:0 8px}}.model{{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}.count{{color:#aab4a4;margin-top:4px}}@media(max-width:520px){{.info{{max-width:140px}}}}
+</style><nav aria-label="Horse navigation">{buttons}<div class="info"><div class="model" title="{label}">{label}</div><div class="count">{index + 1} / {len(horses)}</div></div></nav>"""
+    return '<script>(()=>{const host=document.createElement("div");host.id="horse-bench-overlay";host.attachShadow({mode:"open"}).innerHTML=' + json.dumps(content).replace("<", "\\u003c") + ';document.body.append(host)})();</script>'
+
+
 for run in runs:
     name = run["name"]
     source = root / "results" / name / "index.html"
@@ -21,7 +47,9 @@ for run in runs:
     if source.exists():
         destination = docs / name
         destination.mkdir(exist_ok=True)
-        shutil.copyfile(source, destination / "index.html")
+        original = source.read_text()
+        published = re.sub(r"</body\s*>", lambda match: navigation(run) + match.group(), original, count=1, flags=re.IGNORECASE)
+        (destination / "index.html").write_text(published)
         action = f'<a href="{html.escape(name)}/">Open horse <span aria-hidden="true">↗</span></a>'
     else:
         action = f'<p class="failure">{html.escape(run.get("failure") or "No HTML returned")}</p>'
