@@ -1,10 +1,11 @@
 # Backlog
 
 ## In flight
-- [ ] horse-mobile-controls - Normalize mobile horse controls (since 2026-10-03)
-  Owner: current Codex task. Two generated pages lack viewport metadata, including MiniMax M3 from the screenshot. Normalize published viewport metadata and verify all pages.
 ## Queued
 ## Done
+- [x] horse-mobile-controls - Normalize mobile horse controls (done 2026-10-03)
+  Owner: current Codex task. Two generated pages lack viewport metadata, including MiniMax M3 from the screenshot. Normalize published viewport metadata and verify all pages.
+  Deployed normalized viewport tags. All 19 pages passed Chrome 390x844 mobile emulation: scale 1, visible 44x44 buttons. Public MiniMax, DeepSeek Pro, and GLM HTML matches local output. Physical Safari not tested.
 - [x] horse-overlay-fix - Fix missing horse navigation overlays (done 2026-10-03)
   Owner: current Codex task. Example page overlay is visible in fresh Chrome. GitHub Pages headers advertise max-age=600. Next: check visibility on all live pages and identify whether user browser caching explains missing controls.
   Deployed versioned gallery and overlay links. All 20 public pages match local HTML. Overlay visible on all 19 horses in fresh Chrome; missing controls not reproduced and user cache remains unconfirmed. Evidence: verification.json.
