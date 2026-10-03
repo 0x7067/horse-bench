@@ -1,10 +1,11 @@
 # Backlog
 
 ## In flight
-- [ ] horse-prefetch - Prefetch neighboring horses (since 2026-10-03)
-  Owner: current Codex task. Add versioned prefetch hints for previous and next HTML, verify targets and browser requests, deploy.
 ## Queued
 ## Done
+- [x] horse-prefetch - Prefetch neighboring horses (done 2026-10-03)
+  Owner: current Codex task. Add versioned prefetch hints for previous and next HTML, verify targets and browser requests, deploy.
+  Deployed: all 20 public pages match local HTML. Verified two correctly versioned neighbors per horse and Chrome issued both requests with sec-purpose: prefetch, HTTP 200. Safari not verified.
 - [x] horse-mobile-controls - Normalize mobile horse controls (done 2026-10-03)
   Owner: current Codex task. Two generated pages lack viewport metadata, including MiniMax M3 from the screenshot. Normalize published viewport metadata and verify all pages.
   Deployed normalized viewport tags. All 19 pages passed Chrome 390x844 mobile emulation: scale 1, visible 44x44 buttons. Public MiniMax, DeepSeek Pro, and GLM HTML matches local output. Physical Safari not tested.
