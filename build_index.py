@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 import html
+import hashlib
 import json
 import re
 from pathlib import Path
 
 
 root = Path(__file__).resolve().parent
+version = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()[:10]
 runs = json.loads((root / "results.json").read_text())
 docs = root / "docs"
 docs.mkdir(exist_ok=True)
@@ -25,7 +27,7 @@ def navigation(run):
     }
     buttons = "".join(
         f'<a href="{href}" aria-label="{label}" title="{label}"><svg aria-hidden="true" viewBox="0 0 24 24">{icons[label]}</svg></a>'
-        for label, href in [("Previous horse", f"../{previous}/"), ("Gallery", "../"), ("Next horse", f"../{following}/")]
+        for label, href in [("Previous horse", f"../{previous}/?v={version}"), ("Gallery", f"../?v={version}"), ("Next horse", f"../{following}/?v={version}")]
     )
     label = html.escape(f'{run["harness"]} · {run["model"]} · {run["effort"]}')
     content = f"""<style>
@@ -50,7 +52,7 @@ for run in runs:
         original = source.read_text()
         published = re.sub(r"</body\s*>", lambda match: navigation(run) + match.group(), original, count=1, flags=re.IGNORECASE)
         (destination / "index.html").write_text(published)
-        action = f'<a href="{html.escape(name)}/">Open horse <span aria-hidden="true">↗</span></a>'
+        action = f'<a href="{html.escape(name)}/?v={version}">Open horse <span aria-hidden="true">↗</span></a>'
     else:
         action = f'<p class="failure">{html.escape(run.get("failure") or "No HTML returned")}</p>'
     cards.append(f'<article data-harness="{html.escape(run["harness"])}"><h2>{html.escape(name)}</h2><dl>{metadata}</dl>{action}</article>')

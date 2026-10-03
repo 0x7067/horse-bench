@@ -1,6 +1,8 @@
 # Backlog
 
 ## In flight
+- [ ] horse-overlay-fix - Fix missing horse navigation overlays (since 2026-10-03)
+  Owner: current Codex task. Example page overlay is visible in fresh Chrome. GitHub Pages headers advertise max-age=600. Next: check visibility on all live pages and identify whether user browser caching explains missing controls.
 ## Queued
 ## Done
 - [x] horse-navigation - Add navigation overlay to horse pages (done 2026-10-03)
