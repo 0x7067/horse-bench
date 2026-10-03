@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Low-Poly Galloping Horse</title>
+<style>
+  html, body { margin: 0; padding: 0; overflow: hidden; background: #bfd9e8; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ---- Renderer / Scene / Camera ----
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  document.body.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xbfd9e8);
+  scene.fog = new THREE.Fog(0xbfd9e8, 12, 28);
+
+  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+
+  window.addEventListener('resize', function () {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  // ---- Lights ----
+  const hemi = new THREE.HemisphereLight(0xbfd9e8, 0x9c8a6a, 0.8);
+  scene.add(hemi);
+
+  const sun = new THREE.DirectionalLight(0xfff1d6, 1.35);
+  sun.position.set(5, 9, 4);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.camera.near = 1;
+  sun.shadow.camera.far = 26;
+  sun.shadow.camera.left = -6;
+  sun.shadow.camera.right = 6;
+  sun.shadow.camera.top = 6;
+  sun.shadow.camera.bottom = -6;
+  sun.shadow.bias = -0.0005;
+  scene.add(sun);
+
+  // ---- Materials ----
+  const bodyMat  = new THREE.MeshStandardMaterial({ color: 0xa0522d, roughness: 0.85, metalness: 0.0, flatShading: true });
+  const darkMat  = new THREE.MeshStandardMaterial({ color: 0x43281c, roughness: 0.9,  metalness: 0.0, flatShading: true });
+  const hoofMat  = new THREE.MeshStandardMaterial({ color: 0x242223, roughness: 0.75, metalness: 0.1, flatShading: true });
+  const snoutMat = new THREE.MeshStandardMaterial({ color: 0x9c6b46, roughness: 0.9,  metalness: 0.0, flatShading: true });
+  const eyeMat   = new THREE.MeshBasicMaterial({ color: 0x170f0b });
+  const groundMat = new THREE.MeshStandardMaterial({ color: 0x8fbc6e, roughness: 1.0, metalness: 0.0, flatShading: true });
+  const ringMat   = new THREE.MeshStandardMaterial({ color: 0x6f9b55, roughness: 1.0, metalness: 0.0, flatShading: true });
+  const leafMat   = new THREE.MeshStandardMaterial({ color: 0x5f9e4e, roughness: 1.0, metalness: 0.0, flatShading: true });
+  const hillMat   = new THREE.MeshStandardMaterial({ color: 0x74a457, roughness: 1.0, metalness: 0.0, flatShading: true });
+  const barkMat   = new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 1.0, metalness: 0.0, flatShading: true });
+  const rockMat   = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, roughness: 1.0, metalness: 0.0, flatShading: true });
+  const cloudMat  = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0, metalness: 0.0, flatShading: true });
+
+  // ---- Ground ----
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(16, 48), groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = 0.28;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  const ring = new THREE.Mesh(new THREE.RingGeometry(2.2, 2.55, 56), ringMat);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.286;
+  ring.receiveShadow = true;
+  scene.add(ring);
+
+  // ---- Horse ----
+  const horseRoot = new THREE.Group();
+  scene.add(horseRoot);
+
+  function boxMesh(geo, mat) {
+    const m = new THREE.Mesh(geo, mat);
+    m.castShadow = true;
+    return m;
+  }
+
+  // Body
+  const torso = boxMesh(new THREE.BoxGeometry(0.72, 0.62, 1.85), bodyMat);
+  const chest = boxMesh(new THREE.BoxGeometry(0.84, 0.72, 0.62), bodyMat);
+  chest.position.set(0, -0.02, -0.95);
+  const hind = boxMesh(new THREE.BoxGeometry(0.80, 0.68, 0.55), bodyMat);
+  hind.position.set(0, 0.04, 0.92);
+  horseRoot.add(torso, chest, hind);
+
+  // Neck + mane
+  const neckPivot = new THREE.Group();
+  neckPivot.position.set(0, 0.16, -0.98);
+  horseRoot.add(neckPivot);
+  const neckGeo = new THREE.BoxGeometry(0.30, 0.30, 0.90);
+  neckGeo.translate(0, 0.45, 0);
+  neckPivot.add(boxMesh(neckGeo, bodyMat));
+  const maneGeo = new THREE.BoxGeometry(0.20, 0.14, 0.84);
+  maneGeo.translate(0, 0.50, -0.02);
+  neckPivot.add(boxMesh(maneGeo, darkMat));
+
+  // Head
+  const headPivot = new THREE.Group();
+  headPivot.position.set(0, 0.90, 0);
+  neckPivot.add(headPivot);
+  const head = boxMesh(new THREE.BoxGeometry(0.26, 0.26, 0.62), bodyMat);
+  head.position.set(0, 0.03, -0.28);
+  headPivot.add(head);
+  const snout = boxMesh(new THREE.BoxGeometry(0.19, 0.18, 0.28), snoutMat);
+  snout.position.set(0, -0.03, -0.66);
+  headPivot.add(snout);
+  const earGeo = new THREE.ConeGeometry(0.045, 0.17, 4);
+  [-1, 1].forEach(function (sx) {
+    const ear = boxMesh(earGeo, bodyMat);
+    ear.position.set(0.085 * sx, 0.19, -0.34);
+    ear.rotation.x = 0.45;
+    headPivot.add(ear);
+  });
+  const forelock = boxMesh(new THREE.BoxGeometry(0.14, 0.08, 0.20), darkMat);
+  forelock.position.set(0, 0.18, -0.50);
+  headPivot.add(forelock);
+  const eyeGeo = new THREE.SphereGeometry(0.035, 8, 6);
+  [-1, 1].forEach(function (sx) {
+    const eye = boxMesh(eyeGeo, eyeMat);
+    eye.position.set(0.13 * sx, 0.05, -0.40);
+    headPivot.add(eye);
+  });
+
+  // Tail (3-segment chain)
+  const tailRoot = new THREE.Group();
+  tailRoot.position.set(0, 0.14, 1.02);
+  horseRoot.add(tailRoot);
+  const s1 = new THREE.BoxGeometry(0.10, 0.13, 0.44);
+  s1.translate(0, -0.03, 0.22);
+  tailRoot.add(boxMesh(s1, darkMat));
+  const seg2Pivot = new THREE.Group();
+  seg2Pivot.position.set(0, -0.08, 0.44);
+  tailRoot.add(seg2Pivot);
+  const s2 = new THREE.BoxGeometry(0.08, 0.12, 0.40);
+  s2.translate(0, -0.03, 0.20);
+  seg2Pivot.add(boxMesh(s2, darkMat));
+  const seg3Pivot = new THREE.Group();
+  seg3Pivot.position.set(0, -0.09, 0.40);
+  seg2Pivot.add(seg3Pivot);
+  const s3 = new THREE.BoxGeometry(0.06, 0.10, 0.34);
+  s3.translate(0, -0.02, 0.17);
+  seg3Pivot.add(boxMesh(s3, darkMat));
+
+  // Legs
+  function buildLeg(x, z, hipY, isFront, phase) {
+    const legGroup = new THREE.Group();
+    legGroup.position.set(x, hipY, z);
+    const upperGeo = new THREE.BoxGeometry(isFront ? 0.17 : 0.19, 0.55, 0.18);
+    upperGeo.translate(0, -0.275, 0);
+    legGroup.add(boxMesh(upperGeo, bodyMat));
+    const knee = new THREE.Group();
+    knee.position.set(0, -0.55, 0);
+    const lowerGeo = new THREE.BoxGeometry(0.14, 0.50, 0.15);
+    lowerGeo.translate(0, -0.25, 0);
+    knee.add(boxMesh(lowerGeo, darkMat));
+    const hoofGeo = new THREE.BoxGeometry(0.17, 0.10, 0.21);
+    hoofGeo.translate(0, -0.56, 0.03);
+    knee.add(boxMesh(hoofGeo, hoofMat));
+    legGroup.add(knee);
+    horseRoot.add(legGroup);
+    return { group: legGroup, knee: knee, phase: phase, isFront: isFront };
+  }
+
+  const legJoints = [
+    buildLeg(-0.37, -0.96, 0.04, true,  Math.PI),          // front left
+    buildLeg( 0.37, -0.96, 0.04, true,  Math.PI * 1.5),    // front right
+    buildLeg(-0.40,  0.90, 0.10, false, 0),                // back left
+    buildLeg( 0.40,  0.90, 0.10, false, Math.PI / 2)       // back right
+  ];
+
+  // ---- Environment props ----
+  const rng = (function () {
+    let s = 424242;
+    return function () {
+      s = (s * 16807) % 2147483647;
+      return (s - 1) / 2147483646;
+    };
+  })();
+
+  // grass tufts
+  for (let i = 0; i < 18; i++) {
+    const a = rng() * Math.PI * 2;
+    const r = 1.9 + rng() * 4.6;
+    const g = new THREE.Mesh(new THREE.ConeGeometry(0.06 + rng() * 0.04, 0.16 + rng() * 0.12, 5), leafMat);
+    g.position.set(Math.cos(a) * r, 0.27, Math.sin(a) * r);
+    g.scale.y = 0.7 + rng() * 0.7;
+    g.castShadow = true;
+    g.receiveShadow = true;
+    scene.add(g);
+  }
+
+  // rocks
+  for (let i = 0; i < 6; i++) {
+    const a = rng() * Math.PI * 2;
+    const r = 2.6 + rng() * 5.0;
+    const g = new THREE.Mesh(new THREE.IcosahedronGeometry(0.10 + rng() * 0.12, 0), rockMat);
+    g.position.set(Math.cos(a) * r, 0.25, Math.sin(a) * r);
+    g.scale.set(1, 0.55 + rng() * 0.35, 1);
+    g.rotation.y = rng() * Math.PI;
+    g.castShadow = true;
+    g.receiveShadow = true;
+    scene.add(g);
+  }
+
+  // trees
+  function tree(x, z, s) {
+    const g = new THREE.Group();
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.13, 0.7, 5), barkMat);
+    trunk.position.y = 0.28;
+    const f1 = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.85, 6), leafMat);
+    f1.position.y = 1.0;
+    const f2 = new THREE.Mesh(new THREE.ConeGeometry(0.36, 0.7, 6), leafMat);
+    f2.position.y = 1.5;
+    g.add(trunk, f1, f2);
+    g.position.set(x, 0, z);
+    g.scale.setScalar(s);
+    g.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    scene.add(g);
+  }
+  tree(-3.2, -3.4, 1.15);
+  tree( 3.6, -2.2, 0.85);
+  tree( 1.5,  4.6, 1.05);
+  tree(-4.6,  2.8, 0.75);
+
+  // distant hills
+  function hill(x, z, r, h) {
+    const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, 7), hillMat);
+    m.position.set(x, h * 0.55, z);
+    scene.add(m);
+  }
+  hill( 7.5,  9.5, 4.0, 2.2);
+  hill(-6.5, 10.5, 3.4, 1.7);
+  hill(-9.5, -6.5, 3.0, 1.5);
+  hill( 2.0, 12.0, 3.8, 2.0);
+
+  // clouds + sun
+  const cloudRefs = [];
+  function cloud(x, y, z, s, phase) {
+    const g = new THREE.Group();
+    for (let i = 0; i < 4; i++) {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.22, 0.5), cloudMat);
+      b.position.set(i * 0.55 - 0.85, (i % 2) * 0.13, ((i % 3) * 0.12) - 0.15);
+      b.scale.y = 0.6 + (i % 2) * 0.45;
+      g.add(b);
+    }
+    g.position.set(x, y, z);
+    g.scale.setScalar(s);
+    scene.add(g);
+    cloudRefs.push({ g: g, x0: x, phase: phase });
+  }
+  cloud(-5, 6.4, -8, 1.4, 0.5);
+  cloud( 6, 7.2, -4, 1.1, 2.1);
+  cloud( 2, 6.8, -9, 0.9, 3.9);
+
+  const sunDisc = new THREE.Mesh(
+    new THREE.CircleGeometry(0.75, 24),
+    new THREE.MeshBasicMaterial({ color: 0xffe9a8, fog: false })
+  );
+  sunDisc.position.set(6, 7.5, -12);
+  sunDisc.lookAt(0, 1.2, 0);
+  scene.add(sunDisc);
+
+  // ---- Animation loop (seamless gallop) ----
+  const clock = new THREE.Clock();
+
+  function animate() {
+    requestAnimationFrame(animate);
+    const t = clock.getElapsedTime();
+    const g = t * 4.0; // one full stride every 1.57s
+
+    // Body bounce, pitch, and roll
+    horseRoot.position.y = 1.38 + 0.05 * Math.sin(g + 0.8) - 0.02 * Math.cos(2 * g);
+    horseRoot.rotation.x = -0.06 * Math.sin(g - 1.2);
+    horseRoot.rotation.z = 0.025 * Math.sin(2 * g + 0.7);
+
+    // Legs: rotary gallop, each limb a quarter-cycle apart.
+    // Positive thigh swings the leg forward; negative knee folds the hoof back.
+    for (let i = 0; i < legJoints.length; i++) {
+      const j = legJoints[i];
+      const th = g + j.phase;
+      const A = j.isFront ? 0.72 : 0.60;
+      const K = j.isFront ? 1.25 : 1.10;
+      j.group.rotation.x = A * Math.sin(th);
+      j.knee.rotation.x = -K * Math.max(0, Math.sin(th));
+    }
+
+    // Neck & head
+    neckPivot.rotation.x = -0.60 + 0.04 * Math.sin(g + 0.8);
+    headPivot.rotation.x = 0.60 + 0.07 * Math.sin(g + 2.5);
+
+    // Tail whip (3 segments with phase lag)
+    tailRoot.rotation.x = -0.40 + 0.22 * Math.sin(g - 0.9);
+    tailRoot.rotation.z = 0.05 * Math.sin(2 * g + 1.3);
+    seg2Pivot.rotation.x = 0.30 * Math.sin(g - 2.0);
+    seg3Pivot.rotation.x = 0.42 * Math.sin(g - 3.1);
+
+    // Drifting clouds
+    for (let i = 0; i < cloudRefs.length; i++) {
+      cloudRefs[i].g.position.x = cloudRefs[i].x0 + Math.sin(t * 0.06 + cloudRefs[i].phase) * 1.8;
+    }
+
+    // Slow orbiting camera
+    const a = t * 0.13;
+    camera.position.set(5.4 * Math.sin(a), 2.0, 5.4 * Math.cos(a));
+    camera.lookAt(0, 1.25, 0);
+
+    renderer.render(scene, camera);
+  }
+
+  animate();
+})();
+</script>
+</body>
+</html>
+[Tokens] upload: 3061 download: 52620
+

@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Low-Poly Galloping Horse</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #bfe3f5; }
+  canvas { display: block; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'three';
+
+const LOOP = 0.9;
+const TAU = Math.PI * 2;
+const SKY = 0xbfe3f5;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(SKY);
+scene.fog = new THREE.Fog(SKY, 25, 60);
+
+const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 200);
+camera.position.set(3.2, 2.0, 7.2);
+camera.lookAt(0.1, 1.15, 0);
+
+scene.add(new THREE.HemisphereLight(0xdff1ff, 0x6b8a4a, 1.0));
+const sun = new THREE.DirectionalLight(0xfff0d0, 2.0);
+sun.position.set(5, 9, 6);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -4;
+sun.shadow.camera.right = 4;
+sun.shadow.camera.top = 4;
+sun.shadow.camera.bottom = -4;
+sun.shadow.camera.near = 1;
+sun.shadow.camera.far = 25;
+sun.shadow.bias = -0.0005;
+scene.add(sun);
+
+const flat = (color) => new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.9, metalness: 0 });
+const coat = flat(0x9a5528);
+const dark = flat(0x2b1b14);
+const hoofMat = flat(0x1b1512);
+const muzzleMat = flat(0x3a2820);
+const eyeMat = new THREE.MeshBasicMaterial({ color: 0x0b0b0b });
+
+const cast = (mesh) => { mesh.castShadow = true; return mesh; };
+
+function limb(len, r0, r1, segs, material, down, depth = 1) {
+  const g = new THREE.CylinderGeometry(down ? r0 : r1, down ? r1 : r0, len, segs);
+  g.translate(0, down ? -len / 2 : len / 2, 0);
+  g.scale(1, 1, depth);
+  return cast(new THREE.Mesh(g, material));
+}
+
+function blob(r, sx, sy, sz, material, detail = 1) {
+  const m = cast(new THREE.Mesh(new THREE.IcosahedronGeometry(r, detail), material));
+  m.scale.set(sx, sy, sz);
+  return m;
+}
+
+function pivot(parent, x, y, z) {
+  const g = new THREE.Group();
+  g.position.set(x, y, z);
+  parent.add(g);
+  return g;
+}
+
+const horse = new THREE.Group();
+scene.add(horse);
+const rig = pivot(horse, 0, 0, 0);
+const spine = pivot(rig, 0, 1.4, 0);
+
+const torsoGeo = new THREE.CylinderGeometry(0.5, 0.5, 1.7, 8);
+torsoGeo.rotateZ(Math.PI / 2);
+const torso = cast(new THREE.Mesh(torsoGeo, coat));
+torso.scale.set(1, 0.95, 0.8);
+spine.add(torso);
+
+const chest = blob(0.55, 1, 1.05, 0.85, coat);
+chest.position.set(0.8, 0.02, 0);
+spine.add(chest);
+
+const rump = blob(0.55, 1.1, 1, 0.9, coat);
+rump.position.set(-0.8, 0.04, 0);
+spine.add(rump);
+
+const neck = pivot(spine, 0.9, 0.25, 0);
+neck.add(limb(0.95, 0.28, 0.17, 7, coat, false, 0.8));
+
+const head = pivot(neck, 0, 0.95, 0);
+head.add(limb(0.62, 0.17, 0.1, 6, coat, false, 0.85));
+const nose = cast(new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.14, 0.17), muzzleMat));
+nose.position.set(0, 0.62, 0);
+head.add(nose);
+const jaw = blob(0.15, 1, 1.1, 0.85, coat, 0);
+jaw.position.set(0, 0.12, 0);
+head.add(jaw);
+
+for (const side of [-1, 1]) {
+  const ear = limb(0.2, 0.06, 0.012, 4, dark, false);
+  ear.position.set(0, 0.05, side * 0.1);
+  ear.rotation.z = 2.15;
+  head.add(ear);
+  const eye = new THREE.Mesh(new THREE.IcosahedronGeometry(0.03, 0), eyeMat);
+  eye.position.set(0.04, 0.22, side * 0.125);
+  head.add(eye);
+}
+
+const maneBits = [];
+for (let i = 0; i < 7; i++) {
+  const bit = pivot(neck, -0.17, 0.08 + i * 0.13, 0);
+  const tuft = cast(new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.15, 0.06), dark));
+  tuft.position.set(-0.13, 0, 0);
+  bit.add(tuft);
+  maneBits.push(bit);
+}
+const forelock = cast(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.18, 0.08), dark));
+forelock.position.set(0.1, 0.1, 0);
+head.add(forelock);
+
+const tail = [];
+{
+  const lens = [0.5, 0.5, 0.45];
+  const radii = [[0.11, 0.09], [0.09, 0.075], [0.075, 0.03]];
+  let parent = pivot(spine, -1.32, 0.3, 0);
+  for (let i = 0; i < 3; i++) {
+    parent.add(limb(lens[i], radii[i][0], radii[i][1], 5, dark, true, 0.8));
+    tail.push(parent);
+    if (i < 2) parent = pivot(parent, 0, -lens[i], 0);
+  }
+}
+
+function makeLeg(front, x, z, lowerMat) {
+  const L1 = front ? 0.62 : 0.66;
+  const L2 = front ? 0.58 : 0.6;
+  const hip = pivot(spine, x, -0.05, z);
+  hip.add(limb(L1, front ? 0.16 : 0.22, front ? 0.1 : 0.11, 6, coat, true));
+  const knee = pivot(hip, 0, -L1, 0);
+  knee.add(limb(L2, 0.09, 0.06, 5, lowerMat, true));
+  const ankle = pivot(knee, 0, -L2, 0);
+  ankle.add(limb(0.13, 0.07, 0.095, 5, hoofMat, true));
+  const tip = pivot(ankle, 0, -0.13, 0);
+  return { hip, knee, ankle, tip, front };
+}
+
+const legs = [
+  { leg: makeLeg(false, -0.7, 0.3, dark), phase: 0.0 },
+  { leg: makeLeg(false, -0.7, -0.3, dark), phase: 0.1 },
+  { leg: makeLeg(true, 0.7, 0.28, dark), phase: 0.45 },
+  { leg: makeLeg(true, 0.7, -0.28, dark), phase: 0.58 }
+];
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), flat(0x7fae52));
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const lane = new THREE.Mesh(new THREE.PlaneGeometry(400, 3.6), flat(0xc9a36b));
+lane.rotation.x = -Math.PI / 2;
+lane.position.y = 0.005;
+lane.receiveShadow = true;
+scene.add(lane);
+
+const sunDisc = new THREE.Mesh(new THREE.IcosahedronGeometry(3, 1), new THREE.MeshBasicMaterial({ color: 0xfff3b0, fog: false }));
+sunDisc.position.set(-25, 28, -70);
+scene.add(sunDisc);
+
+const hillMats = [flat(0x8fa9c4), flat(0x7d97b4)];
+for (let i = 0; i < 12; i++) {
+  const h = 6 + ((i * 7) % 5) * 2.2;
+  const hill = new THREE.Mesh(new THREE.ConeGeometry(h * 0.9, h, 5), hillMats[i % 2]);
+  hill.position.set(-55 + i * 10, h / 2 - 0.2, -45 - (i % 3) * 6);
+  hill.rotation.y = i;
+  scene.add(hill);
+}
+
+const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false });
+for (let i = 0; i < 6; i++) {
+  const cloud = new THREE.Group();
+  for (let k = 0; k < 4; k++) {
+    const puff = new THREE.Mesh(new THREE.IcosahedronGeometry(2 + (k % 2), 0), cloudMat);
+    puff.position.set(k * 2.4 - 3, (k % 2) * 0.6, 0);
+    puff.scale.y = 0.55;
+    cloud.add(puff);
+  }
+  cloud.position.set(-40 + i * 16, 22 + (i % 3) * 3, -60);
+  scene.add(cloud);
+}
+
+const PATTERN = 6;
+const COUNT = 10;
+const RING = PATTERN * COUNT;
+const scenery = [];
+
+function place(mesh, x, y, z) {
+  scene.add(mesh);
+  scenery.push({ mesh, x0: x, y, z });
+}
+
+function tree(scale, trunkMat, leafMat) {
+  const t = new THREE.Group();
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.22, 1.2, 5), trunkMat);
+  trunk.position.y = 0.6;
+  t.add(trunk);
+  for (let i = 0; i < 3; i++) {
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(1.2 - i * 0.3, 1.5, 6), leafMat);
+    cone.position.y = 1.5 + i * 0.85;
+    t.add(cone);
+  }
+  t.scale.setScalar(scale);
+  return t;
+}
+
+const trunkMat = flat(0x5b3d26);
+const leafMats = [flat(0x2f7d46), flat(0x3b8f4f)];
+const rockMat = flat(0x8b8f94);
+const grassMat = flat(0x4f9a3c);
+const dashMat = flat(0xb08a52);
+const flowerMats = [flat(0xf4d03f), flat(0xf2f2f2), flat(0xe86f8c)];
+
+for (let j = 0; j < COUNT; j++) {
+  const base = j * PATTERN - RING / 2;
+
+  place(tree(1.0, trunkMat, leafMats[0]), base + 0.5, 0, -5.5);
+  place(tree(1.4, trunkMat, leafMats[1]), base + 3.6, 0, -8.5);
+  place(tree(1.8, trunkMat, leafMats[0]), base + 1.8, 0, -13);
+
+  for (const [dx, dz, s] of [[4.6, 3.4, 0.35], [2.0, -3.4, 0.5]]) {
+    const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(s, 0), rockMat);
+    rock.scale.y = 0.7;
+    rock.castShadow = false;
+    place(rock, base + dx, s * 0.3, dz);
+  }
+
+  for (let k = 0; k < 3; k++) {
+    const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.35 + k * 0.1, 4), grassMat);
+    place(tuft, base + 1.4 + k * 0.12, 0.2, 2.8 + (k % 2) * 0.15);
+  }
+
+  const flower = new THREE.Mesh(new THREE.IcosahedronGeometry(0.09, 0), flowerMats[j % 3]);
+  place(flower, base + 5, 0.1, -2.6);
+  const flower2 = new THREE.Mesh(new THREE.IcosahedronGeometry(0.09, 0), flowerMats[(j + 1) % 3]);
+  place(flower2, base + 2.6, 0.1, 2.2);
+
+  const dash1 = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.02, 0.14), dashMat);
+  place(dash1, base + 1.0, 0.015, 1.5);
+  const dash2 = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.02, 0.14), dashMat);
+  place(dash2, base + 4.0, 0.015, -1.4);
+  const pebble = new THREE.Mesh(new THREE.IcosahedronGeometry(0.1, 0), rockMat);
+  place(pebble, base + 3.0, 0.05, 0.9);
+}
+
+const tipPos = new THREE.Vector3();
+
+function animateHorse(a) {
+  spine.rotation.z = 0.07 * Math.sin(a + 0.9);
+  spine.rotation.x = 0.02 * Math.sin(a);
+  neck.rotation.z = -0.8 + 0.1 * Math.sin(a + 2.2);
+  head.rotation.z = -1.1 + 0.12 * Math.sin(a + 1.4);
+
+  for (let i = 0; i < maneBits.length; i++) {
+    maneBits[i].rotation.z = 0.12 + 0.25 * Math.sin(a - 0.55 * i + 0.5);
+  }
+
+  tail[0].rotation.z = -1.0 + 0.15 * Math.sin(a + 0.8);
+  tail[1].rotation.z = 0.2 + 0.25 * Math.sin(a + 0.8 - 0.9);
+  tail[2].rotation.z = 0.25 + 0.3 * Math.sin(a + 0.8 - 1.8);
+
+  for (const { leg, phase } of legs) {
+    const p = a + phase * TAU;
+    const fold = Math.pow(Math.max(0, Math.cos(p + 0.4)), 1.3);
+    if (leg.front) {
+      leg.hip.rotation.z = 0.85 * Math.sin(p) + 0.05;
+      leg.knee.rotation.z = -(0.1 + 1.6 * fold);
+      leg.ankle.rotation.z = 0.55 * fold + 0.1 * Math.sin(p);
+    } else {
+      leg.hip.rotation.z = 0.75 * Math.sin(p) - 0.15;
+      leg.knee.rotation.z = -(0.15 + 1.4 * fold);
+      leg.ankle.rotation.z = 0.7 * fold + 0.1 * Math.sin(p);
+    }
+  }
+
+  rig.position.y = 0;
+  horse.updateMatrixWorld(true);
+  let lowest = Infinity;
+  for (const { leg } of legs) {
+    leg.tip.getWorldPosition(tipPos);
+    lowest = Math.min(lowest, tipPos.y);
+  }
+  const airtime = 0.1 * Math.max(0, Math.sin(2 * a + 1.0));
+  rig.position.y = -lowest + airtime;
+}
+
+function animateScenery(u) {
+  const half = RING / 2;
+  for (const s of scenery) {
+    const x = s.x0 - u * PATTERN;
+    const wrapped = ((((x + half) % RING) + RING) % RING) - half;
+    s.mesh.position.set(wrapped, s.y, s.z);
+  }
+}
+
+function frame(ms) {
+  const u = ((ms / 1000) % LOOP) / LOOP;
+  animateHorse(u * TAU);
+  animateScenery(u);
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>

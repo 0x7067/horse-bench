@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Low-Poly Horse</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #9fd3e8; }
+  canvas { display: block; }
+  .hint {
+    position: fixed;
+    left: 14px;
+    bottom: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: rgba(30, 40, 30, 0.55);
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<div class="hint">LOW-POLY HORSE &middot; GALLOP LOOP</div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script>
+(function () {
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  document.body.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x9fd3e8);
+  scene.fog = new THREE.Fog(0x9fd3e8, 16, 55);
+
+  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 200);
+  camera.position.set(8, 3.4, 8);
+
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x8a7a5a, 0.75);
+  scene.add(hemi);
+
+  const sun = new THREE.DirectionalLight(0xfff2d8, 1.35);
+  sun.position.set(6, 11, 5);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.near = 1;
+  sun.shadow.camera.far = 40;
+  sun.shadow.camera.left = -12;
+  sun.shadow.camera.right = 12;
+  sun.shadow.camera.top = 12;
+  sun.shadow.camera.bottom = -12;
+  sun.shadow.bias = -0.0005;
+  scene.add(sun);
+
+  function mat(color, opts) {
+    return new THREE.MeshStandardMaterial(
+      Object.assign({ color: color, roughness: 0.92, metalness: 0.0, flatShading: true }, opts || {})
+    );
+  }
+
+  const bodyMat = mat(0x9a5a2b);
+  const pointMat = mat(0x2e2015);
+  const muzzleMat = mat(0x8a4a24);
+  const bellyMat = mat(0x7d4720);
+  const eyeMat = mat(0x0d0d0d, { roughness: 0.35, metalness: 0.05 });
+
+  function box(w, h, d, m, x, y, z, rx, ry, rz, parent) {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+    mesh.position.set(x, y, z);
+    mesh.rotation.set(rx || 0, ry || 0, rz || 0);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    (parent || scene).add(mesh);
+    return mesh;
+  }
+
+  // Ground
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), mat(0x8fb06a));
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // Scrolling low-poly props (sell forward motion)
+  const props = [];
+  function makeProp() {
+    const r = Math.random();
+    let m;
+    if (r < 0.5) {
+      const h = 0.35 + Math.random() * 0.9;
+      m = new THREE.Mesh(new THREE.ConeGeometry(0.24, h, 4), mat(0x5d8a3c));
+      m.position.y = h / 2;
+    } else if (r < 0.8) {
+      m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.2 + Math.random() * 0.45, 0), mat(0x9a9a8a));
+      m.position.y = 0.15;
+    } else {
+      m = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.55, 0.3), mat(0x7a6a4a));
+      m.position.y = 0.27;
+    }
+    m.castShadow = true;
+    m.receiveShadow = true;
+    m.position.x = (Math.random() - 0.5) * 34;
+    m.position.z = (Math.random() - 0.5) * 50;
+    scene.add(m);
+    return m;
+  }
+  for (let i = 0; i < 44; i++) props.push(makeProp());
+
+  // Horse
+  const horse = new THREE.Group();
+  scene.add(horse);
+
+  const torso = new THREE.Group();
+  horse.add(torso);
+
+  box(0.92, 0.7, 1.85, bodyMat, 0, 1.38, 0.0, 0, 0, 0, torso);
+  box(0.9, 0.8, 0.6, bodyMat, 0, 1.34, 0.95, 0, 0, 0, torso);
+  box(0.94, 0.86, 0.62, bodyMat, 0, 1.4, -0.95, 0, 0, 0, torso);
+  box(0.8, 0.5, 1.4, bellyMat, 0, 1.05, 0.1, 0, 0, 0, torso);
+
+  // Back mane
+  for (let i = 0; i < 6; i++) {
+    box(0.1, 0.16, 0.16, pointMat, 0, 1.74, 0.75 - i * 0.28, 0, 0, 0, torso);
+  }
+
+  // Neck + head
+  const neck = new THREE.Group();
+  neck.position.set(0, 1.6, 0.78);
+  neck.rotation.x = 0.5;
+  torso.add(neck);
+
+  box(0.56, 1.2, 0.55, bodyMat, 0, 0.55, 0.06, 0, 0, 0, neck);
+
+  for (let i = 0; i < 6; i++) {
+    box(0.12, 0.16, 0.16, pointMat, 0, 0.2 + i * 0.17, -0.26, 0, 0, 0, neck);
+  }
+
+  const head = new THREE.Group();
+  head.position.set(0, 1.18, 0.14);
+  head.rotation.x = -0.42;
+  neck.add(head);
+
+  box(0.52, 0.44, 0.5, bodyMat, 0, 0.05, 0.1, 0, 0, 0, head);
+  box(0.38, 0.32, 0.6, muzzleMat, 0, -0.07, 0.58, 0, 0, 0, head);
+  box(0.12, 0.26, 0.1, bodyMat, 0.17, 0.4, -0.05, 0, 0, -0.18, head);
+  box(0.12, 0.26, 0.1, bodyMat, -0.17, 0.4, -0.05, 0, 0, 0.18, head);
+  box(0.07, 0.07, 0.04, eyeMat, 0.18, 0.08, 0.34, 0, 0, 0, head);
+  box(0.07, 0.07, 0.04, eyeMat, -0.18, 0.08, 0.34, 0, 0, 0, head);
+
+  // Tail
+  const tail = new THREE.Group();
+  tail.position.set(0, 1.42, -1.28);
+  torso.add(tail);
+  const tailSegs = [];
+  for (let i = 0; i < 5; i++) {
+    const w = 0.14 - i * 0.02;
+    const seg = box(w, w, 0.55, pointMat,
+      Math.sin(i * 0.7) * 0.06, -0.1 - i * 0.32, -0.32 - i * 0.4,
+      0.5 + i * 0.1, 0, 0, tail);
+    tailSegs.push(seg);
+  }
+
+  // Legs
+  const legs = [];
+  function buildLeg(x, z, front, phase) {
+    const pivotY = front ? 1.28 : 1.32;
+    const uLen = front ? 0.62 : 0.66;
+    const lLen = front ? 0.5 : 0.54;
+    const hoofH = 0.13;
+
+    const g = new THREE.Group();
+    g.position.set(x, pivotY, z);
+    torso.add(g);
+
+    const uW = front ? 0.2 : 0.24;
+    box(uW, uLen, 0.24, bodyMat, 0, -uLen / 2, 0, 0, 0, 0, g);
+
+    const knee = new THREE.Group();
+    knee.position.y = -uLen;
+    g.add(knee);
+
+    const lW = front ? 0.16 : 0.19;
+    box(lW, lLen, 0.2, pointMat, 0, -lLen / 2, 0, 0, 0, 0, knee);
+    box(0.2, hoofH, 0.26, pointMat, 0, -lLen - hoofH / 2, 0, 0, 0, 0, knee);
+
+    const leg = { g: g, knee: knee, front: front, phase: phase };
+    legs.push(leg);
+  }
+
+  // Transverse gallop footfall: RH, RF, LH, LF
+  buildLeg(-0.33, 0.74, true, 0.60);  // LF
+  buildLeg(0.33, 0.74, true, 0.10);   // RF
+  buildLeg(-0.35, -0.7, false, 0.50); // LH
+  buildLeg(0.35, -0.7, false, 0.00);  // RH
+
+  const clock = new THREE.Clock();
+
+  function animate() {
+    requestAnimationFrame(animate);
+
+    const dt = Math.min(clock.getDelta(), 0.05);
+    const t = clock.elapsedTime;
+
+    const freq = 1.15; // strides per second
+    const w = t * freq * Math.PI * 2;
+
+    // Legs
+    for (let i = 0; i < legs.length; i++) {
+      const leg = legs[i];
+      const p = w + leg.phase * Math.PI * 2;
+      const swing = Math.sin(p);
+      const bend = 0.5 - 0.5 * Math.cos(p);
+
+      leg.g.rotation.x = swing * (leg.front ? 0.55 : 0.62);
+      leg.knee.rotation.x = bend * (leg.front ? 0.95 : -1.05);
+    }
+
+    // Body bob, pitch, roll
+    horse.position.y = Math.sin(w * 2) * 0.05;
+    torso.rotation.x = Math.sin(w * 2) * 0.05;
+    torso.rotation.z = Math.sin(w) * 0.04;
+
+    // Neck and head
+    neck.rotation.x = 0.5 + Math.sin(w * 2 + 0.5) * 0.05;
+    head.rotation.x = -0.42 + Math.sin(w * 2 + 1.2) * 0.06;
+    head.rotation.z = Math.sin(w) * 0.05;
+
+    // Tail
+    tail.rotation.y = Math.sin(w * 0.5 + 1.0) * 0.35;
+    tail.rotation.x = 0.15 + Math.sin(w * 2 + 0.8) * 0.18;
+    for (let i = 0; i < tailSegs.length; i++) {
+      tailSegs[i].rotation.z = Math.sin(w * 2 + i * 0.5) * 0.06;
+    }
+
+    // Scrolling ground props
+    for (let i = 0; i < props.length; i++) {
+      props[i].position.z -= 6 * dt;
+      if (props[i].position.z < -26) props[i].position.z += 52;
+    }
+
+    // Slow camera orbit
+    const camT = t * 0.12;
+    const r = 8;
+    camera.position.set(
+      Math.sin(camT) * r,
+      3.4 + Math.sin(t * 0.5) * 0.15,
+      Math.cos(camT) * r
+    );
+    camera.lookAt(0, 1.3, 0);
+
+    renderer.render(scene, camera);
+  }
+
+  window.addEventListener('resize', function () {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  animate();
+})();
+</script>
+</body>
+</html>

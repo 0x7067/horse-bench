@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Low-Poly Horse</title>
+<style>
+html, body { margin: 0; height: 100%; overflow: hidden; background: #a9cfe0; }
+canvas { display: block; }
+</style>
+</head>
+<body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xa9cfe0);
+  scene.fog = new THREE.Fog(0xa9cfe0, 16, 34);
+
+  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+  camera.position.set(5.0, 2.3, 5.4);
+  camera.lookAt(0.1, 1.1, 0);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  document.body.appendChild(renderer.domElement);
+
+  const hemi = new THREE.HemisphereLight(0xcfe6ff, 0x86a06e, 0.85);
+  scene.add(hemi);
+
+  const sun = new THREE.DirectionalLight(0xfff1d6, 1.15);
+  sun.position.set(6, 9, 5);
+  sun.castShadow = true;
+  sun.shadow.mapSize.width = 1024;
+  sun.shadow.mapSize.height = 1024;
+  const d = 9;
+  sun.shadow.camera.left = -d;
+  sun.shadow.camera.right = d;
+  sun.shadow.camera.top = d;
+  sun.shadow.camera.bottom = -d;
+  sun.shadow.camera.near = 1;
+  sun.shadow.camera.far = 30;
+  sun.shadow.bias = -0.0006;
+  sun.shadow.camera.updateProjectionMatrix();
+  scene.add(sun);
+
+  const M = {
+    coat: new THREE.MeshPhongMaterial({ color: 0xc8794a, flatShading: true, shininess: 6 }),
+    mane: new THREE.MeshPhongMaterial({ color: 0x3c2418, flatShading: true, shininess: 4 }),
+    hoof: new THREE.MeshPhongMaterial({ color: 0x261610, flatShading: true, shininess: 4 }),
+    eye: new THREE.MeshPhongMaterial({ color: 0x14100a, flatShading: true, shininess: 20 }),
+    grass: new THREE.MeshPhongMaterial({ color: 0x8fae7a, flatShading: true, shininess: 2 }),
+    stone: new THREE.MeshPhongMaterial({ color: 0x6f8f5f, flatShading: true }),
+    trunk: new THREE.MeshPhongMaterial({ color: 0x7a5236, flatShading: true }),
+    leaf: new THREE.MeshPhongMaterial({ color: 0x54804e, flatShading: true }),
+    rock: new THREE.MeshPhongMaterial({ color: 0x8d8d85, flatShading: true })
+  };
+
+  const horse = new THREE.Group();
+  scene.add(horse);
+
+  const cast = function (mesh) { mesh.castShadow = true; return mesh; };
+
+  const body = cast(new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.82, 0.6), M.coat));
+  body.position.y = 1.04;
+  horse.add(body);
+
+  const haunch = cast(new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.78, 0.58), M.coat));
+  haunch.position.set(-0.76, 1.14, 0);
+  haunch.rotation.z = 0.14;
+  horse.add(haunch);
+
+  const chest = cast(new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.6, 0.56), M.coat));
+  chest.position.set(0.76, 1.28, 0);
+  chest.rotation.z = -0.18;
+  horse.add(chest);
+
+  const neck = new THREE.Group();
+  neck.position.set(0.74, 1.42, 0);
+  neck.rotation.z = 0.72;
+  horse.add(neck);
+
+  const neckMesh = cast(new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.66, 0.32), M.coat));
+  neckMesh.position.y = 0.32;
+  neck.add(neckMesh);
+
+  for (let i = 0; i < 5; i++) {
+    const tuft = cast(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.2, 0.08), M.mane));
+    tuft.position.set(0.04 - i * 0.025, 0.14 + i * 0.11, 0);
+    tuft.rotation.z = -0.2 - i * 0.08;
+    neck.add(tuft);
+  }
+
+  const head = new THREE.Group();
+  head.position.set(0.02, 0.68, 0);
+  head.rotation.z = -0.98;
+  neck.add(head);
+
+  const skull = cast(new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.26, 0.22), M.coat));
+  skull.position.set(0.2, -0.02, 0);
+  head.add(skull);
+
+  const snout = cast(new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.18, 0.15), M.coat));
+  snout.position.set(0.52, -0.12, 0);
+  head.add(snout);
+
+  const leftEye = cast(new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.05, 0.03), M.eye));
+  leftEye.position.set(0.28, 0.03, 0.13);
+  head.add(leftEye);
+
+  const rightEye = cast(new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.05, 0.03), M.eye));
+  rightEye.position.set(0.28, 0.03, -0.13);
+  head.add(rightEye);
+
+  const leftEar = cast(new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.16, 4), M.coat));
+  leftEar.position.set(-0.02, 0.16, 0.1);
+  leftEar.rotation.x = 0.25;
+  head.add(leftEar);
+
+  const rightEar = cast(new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.16, 4), M.coat));
+  rightEar.position.set(-0.02, 0.16, -0.1);
+  rightEar.rotation.x = -0.25;
+  head.add(rightEar);
+
+  const forelock = cast(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.16, 0.08), M.mane));
+  forelock.position.set(0.14, 0.13, 0);
+  forelock.rotation.z = -0.3;
+  head.add(forelock);
+
+  const nostrilL = cast(new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.03, 0.03), M.mane));
+  nostrilL.position.set(0.66, -0.14, 0.05);
+  head.add(nostrilL);
+
+  const nostrilR = cast(new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.03, 0.03), M.mane));
+  nostrilR.position.set(0.66, -0.14, -0.05);
+  head.add(nostrilR);
+
+  const tail = new THREE.Group();
+  tail.position.set(-0.98, 1.46, 0);
+  horse.add(tail);
+
+  const tailTop = cast(new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.34, 0.12), M.mane));
+  tailTop.position.set(-0.05, -0.15, 0);
+  tail.add(tailTop);
+
+  const tailTip = cast(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.3, 0.09), M.mane));
+  tailTip.position.set(-0.12, -0.42, 0);
+  tail.add(tailTip);
+
+  function makeLeg(hip, upper, lower) {
+    const leg = new THREE.Group();
+    leg.position.copy(hip);
+    const up = cast(new THREE.Mesh(new THREE.BoxGeometry(0.17, upper, 0.19), M.coat));
+    up.position.y = -upper / 2;
+    const knee = new THREE.Group();
+    knee.position.y = -upper;
+    const lo = cast(new THREE.Mesh(new THREE.BoxGeometry(0.13, lower, 0.15), M.coat));
+    lo.position.y = -lower / 2;
+    const hoof = cast(new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.11, 0.18), M.hoof));
+    hoof.position.y = -lower - 0.055;
+    knee.add(lo);
+    knee.add(hoof);
+    leg.add(up);
+    leg.add(knee);
+    horse.add(leg);
+    return { leg: leg, knee: knee };
+  }
+
+  const fr = makeLeg(new THREE.Vector3(0.3, 1.02, 0.72), 0.44, 0.4);
+  const fl = makeLeg(new THREE.Vector3(-0.3, 1.02, 0.72), 0.44, 0.4);
+  const hr = makeLeg(new THREE.Vector3(0.3, 1.06, -0.74), 0.5, 0.44);
+  const hl = makeLeg(new THREE.Vector3(-0.3, 1.06, -0.74), 0.5, 0.44);
+
+  const legs = [
+    { part: fr, phase: Math.PI, front: true },
+    { part: fl, phase: Math.PI + 0.45, front: true },
+    { part: hr, phase: 0, front: false },
+    { part: hl, phase: 0.45, front: false }
+  ];
+
+  const ground = new THREE.Group();
+  scene.add(ground);
+
+  const disc = new THREE.Mesh(new THREE.CylinderGeometry(11, 11, 0.2, 48), M.grass);
+  disc.position.y = -0.1;
+  disc.receiveShadow = true;
+  ground.add(disc);
+
+  function stoneRing(n, radius) {
+    for (let i = 0; i < n; i++) {
+      const ang = (i / n) * Math.PI * 2;
+      const s = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.08, 0.34), M.stone);
+      s.position.set(Math.cos(ang) * radius, 0.04, Math.sin(ang) * radius);
+      s.rotation.y = -ang;
+      s.castShadow = true;
+      ground.add(s);
+    }
+  }
+  stoneRing(10, 2.3);
+  stoneRing(18, 5.2);
+
+  function tree(x, z, s) {
+    const g = new THREE.Group();
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.08 * s, 0.13 * s, 0.6 * s, 5), M.trunk);
+    trunk.position.y = 0.3 * s;
+    const crown = new THREE.Mesh(new THREE.ConeGeometry(0.46 * s, 1.15 * s, 6), M.leaf);
+    crown.position.y = 1.15 * s;
+    g.add(trunk);
+    g.add(crown);
+    g.position.set(x, 0, z);
+    g.rotation.y = x * 1.7;
+    scene.add(g);
+  }
+
+  for (let i = 0; i < 9; i++) {
+    const ang = (i / 9) * Math.PI * 2 + 0.4;
+    const rad = 7.2 + (i % 3) * 1.3;
+    tree(Math.cos(ang) * rad, Math.sin(ang) * rad, 0.85 + (i % 4) * 0.25);
+  }
+
+  for (let i = 0; i < 7; i++) {
+    const ang = (i / 7) * Math.PI * 2 + 1.7;
+    const rad = 4.6 + (i % 3) * 1.6;
+    const r = new THREE.Mesh(new THREE.DodecahedronGeometry(0.3 + (i % 3) * 0.18), M.rock);
+    r.position.set(Math.cos(ang) * rad, 0.12, Math.sin(ang) * rad);
+    r.castShadow = true;
+    scene.add(r);
+  }
+
+  window.addEventListener('resize', function () {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  const clock = new THREE.Clock();
+  const STRIDE = 1.6;
+  const LOOP = 6.4;
+
+  function animate() {
+    requestAnimationFrame(animate);
+    const t = clock.getElapsedTime();
+    const a = ((t % STRIDE) / STRIDE) * Math.PI * 2;
+    const g = (t % LOOP) / LOOP;
+
+    ground.rotation.y = g * Math.PI * 2;
+
+    horse.position.y = 0.05 * Math.sin(a) + 0.03 * Math.sin(2 * a + 0.6);
+    horse.rotation.z = 0.05 * Math.sin(a + 0.5);
+    horse.rotation.x = 0.02 * Math.sin(a + 1.1);
+
+    for (let i = 0; i < legs.length; i++) {
+      const L = legs[i];
+      const ph = a + L.phase;
+      L.part.leg.rotation.z = 0.58 * Math.sin(ph);
+      const flex = Math.max(0, Math.cos(ph + 0.4));
+      L.part.knee.rotation.z = (L.front ? -1.05 : -0.5) * flex * flex;
+    }
+
+    neck.rotation.z = 0.72 + 0.05 * Math.sin(a + 0.7);
+    head.rotation.z = -0.98 - 0.07 * Math.sin(a + 1.2);
+    head.rotation.y = 0.05 * Math.sin(2 * a + 0.3);
+
+    tail.rotation.z = -0.45 + 0.28 * Math.sin(a + 2.0);
+    tail.rotation.x = 0.3 * Math.sin(a + 0.4);
+
+    renderer.render(scene, camera);
+  }
+
+  animate();
+})();
+</script>
+</body>
+</html>

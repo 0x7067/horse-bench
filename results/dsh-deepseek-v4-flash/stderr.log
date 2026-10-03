@@ -1,0 +1,913 @@
+[supervisor] donsetch mcp --supervised
+dsh: reasoning:
+The user wants a single self-contained HTML file with Three.js showing a low-poly 3D horse running in a seamless loop. No tools, no files, just the HTML.
+
+I need to write the code carefully. Let me design:
+
+- Three.js from CDN (importmap or script module from unpkg/jsdelivr).
+- Procedural horse from primitives: boxes/cylinders.
+- Hierarchy: root → body (chest, barrel, rump), neck, head, legs (4 × upper/lower/hoof), tail.
+- Gallop animation: legs with phase offsets, body bob, head bob, tail sway.
+- Seamless loop: use a normalized cycle time t in [0,1) driven by elapsed % period, and drive all angles with sin/cos of 2πt so it loops seamlessly.
+- Ground plane, lighting, shadows maybe simple.
+- Camera orbit control — I could include OrbitControls but self-contained with importmap from CDN is fine. Let me use importmap with three@0.160.0 modules.
+
+Actually simpler: use a plain script tag with the UMD build? Three.js dropped UMD builds after r150ish. Modern three no longer ships three.min.js in build for non-module... Actually r160 still has build/three.module.js and three.cjs. There's no three.min.js UMD since r150. So use ES modules with importmap.
+
+Let me write it.
+
+Structure:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Low-Poly Horse</title>
+<style> ... </style>
+</head>
+<body>
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+...
+</script>
+</body>
+</html>
+```
+
+Horse modeling. Use a helper to make a box mesh with flat shading, MeshLambertMaterial or MeshStandardMaterial with flatShading.
+
+Let me set up a coordinate system: horse faces +Z. Legs go down -Y. Body length along Z.
+
+Body parts:
+- Barrel: BoxGeometry(0.9, 0.85, 1.8) centered at (0, 1.5, 0) — with slight taper? Could use a cylinder rotated. Low poly: use box.
+- Chest: box at front z ~ +0.9, slightly bigger.
+- Rump: box at z ~ -0.85.
+
+Actually let me just build a body group so I can bob it.
+
+Let me define dimensions in "horse units" where horse height at withers ~ 1.6.
+
+Let me lay out:
+- Ground at y=0.
+- Leg length ~ 1.0 total (upper 0.5, lower 0.42, hoof 0.08).
+- Belly at y ≈ 1.05. Body center y ≈ 1.45.
+
+Legs: shoulder/hip positions:
+- Front legs at z = +0.62, x = ±0.28.
+- Hind legs at z = -0.62, x = ±0.28.
+
+Body: barrel box (0.78 wide, 0.80 tall, 1.5 long) at (0, 1.45, 0).
+Chest box at (0, 1.5, 0.75) size (0.72, 0.78, 0.5).
+Rump box at (0, 1.5, -0.8) size (0.8, 0.82, 0.55).
+Neck: from withers (0, 1.75, 0.75) angled up-forward 45°, length ~0.7. Box (0.42, 0.85, 0.5) rotated.
+Head: box (0.34, 0.34, 0.62) with muzzle.
+Ears: two small cones.
+Tail: chain of 3 small boxes from rump down-back.
+
+Leg hierarchy for animation:
+- thigh pivot group at shoulder: rotate X for swing.
+  - upper leg mesh offset down.
+  - knee group at -upperLength: rotate X.
+    - lower leg mesh.
+    - hoof at bottom.
+
+Gallop pattern: transverse gallop. Phases: 
+Actually simplest convincing quadruped "run": each leg swings with phase offsets and knees flex. For a gallop:
+- Left hind: 0.0
+- Right hind: 0.1
+- Left front: 0.5
+- Right front: 0.6
+
+That's a rotary/transverse gallop-ish. Good enough and looks energetic.
+
+Leg swing angle: sin(2π(t - phase)) * amplitude. With amplitude ~0.7 rad for upper, knee flex = negative (fold back) when swinging forward.
+
+Knee flex: max(0, -sin(...)) something. Let's define for each leg:
+```
+const p = (t - phase) * Math.PI * 2;
+upper.rotation.x = Math.sin(p) * swing;
+lower.rotation.x = -Math.max(0, Math.sin(p - 0.9)) * 1.2 - 0.1;
+```
+Hmm, knee should bend (lower leg folds backward, i.e., rotation.x positive or negative depending). Let's think: horse leg, forward is +Z. Upper leg pivot at top. rotation.x positive rotates the leg's -Y direction toward +Z? Rotation about X: a vector (0,-1,0) rotated by angle a about X becomes (0, -cos a, -sin a). So positive rotation.x moves the foot toward -Z (backward). Hmm: rotation matrix about X: y' = y cos a - z sin a; z' = y sin a + z cos a. For point (0,-1,0): y' = -cos a, z' = -sin a. So yes positive a → foot goes to -Z (backward). So forward swing needs negative rotation.x.
+
+Let's set upper.rotation.x = -sin(p) * 0.55 so at p=π/2 it's fully forward.
+
+Knee: hind leg knee (hock) bends so the lower part goes backward — i.e., the hoof tucks backward relative to upper. That's positive rotation.x. Actually for a gallop, during the swing phase the leg folds: hoof tucks up and backward. Hmm, for the front leg, the knee (carpus) bends backward too (lower leg folds back toward the body). For hind legs, the hock bends forward-ish... Actually the hind leg's stifle/hock: the lower leg goes forward from hock down (the cannon is angled). Simplification: both bend backward-ish, but hind legs bend with lower leg going backward when folded. Ugh.
+
+Let's keep it simple and visual: during the swing phase (leg off ground, moving forward), fold the knee so the hoof lifts. During the stance phase, straighten. So knee flex proportional to how much the leg is swinging forward: flex = max(0, sin(p)) * 1.1 with sign making hoof tuck backward/up.
+
+Hoof tucks: lower.rotation.x = +flex (foot moves -Z relative to knee, i.e., backward) — when the leg is forward (upper rotated negative = forward), the knee bends backwards, so the hoof ends up under the body. That's right for a running horse.
+
+Also, when the leg is at the back (p = -π/2), the leg is extended backward and straight. Good.
+
+Add a slight ground clamp? Not needed; visual only. But legs may sink/float. Add body bob so it feels right: body y offset = base + bobAmp * (some function). For a gallop, the body rises when legs push. Use y = base + 0.08 * Math.sin(2π*(t*2)) maybe with the double frequency... Actually a gallop has one suspension per stride. Body vertical: highest during suspension (legs gathered). Let's use -cos(2π t)*0.09 relative so at t=0 it's low. Eh, just use sin.
+
+Also pitch of the body: rotation.x oscillation small. And neck/head nod: the head bobs with the stride, in antiphase to the body roughly.
+
+Tail: sway side to side and up-down, plus a base flutter.
+
+To make the loop seamless: everything uses t = (elapsed / period) % 1, and each part uses sin/cos(2π t * k) with integer k. Constant terms fine.
+
+Also make it "low-poly": flatShading: true, and use CylinderGeometry with few radial segments (6) or IcosahedronGeometry with detail 0. Use boxes mostly. Maybe use CylinderGeometry for legs with 6 sides — that's nicer and still low-poly.
+
+Let me write geometry helpers:
+
+```js
+function box(w,h,d, mat){ return new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat); }
+function cyl(rt, rb, h, seg, mat){ return new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg,1,false), mat); }
+```
+
+Colors: body a chestnut/brown, mane/tail dark, hooves dark.
+
+Materials with flatShading.
+
+Let me now write the scene setup: renderer with antialias, ACESFilmic? Keep simple. Shadow map enabled, directional light with shadows, ground a large plane with a grid or just flat color. Add fog.
+
+Ground: CircleGeometry or PlaneGeometry with MeshStandardMaterial dark green/blue. Add subtle grid lines? Keep minimal: a big plane and a few scattered low-poly rocks? Not necessary but nice. Keep it simple — the ask is the horse. Maybe add a soft contact shadow blob. I'll rely on directional shadow.
+
+Camera: PerspectiveCamera, position (4, 2.6, 5.5), lookAt(0, 1.3, 0). OrbitControls with target (0,1.3,0), enableDamping, autoRotate maybe off but allow. Add slight autoRotate? Might be nice: controls.autoRotate = false. I'll leave the user to orbit. Actually a gentle auto-rotate showcases the loop. I'll set autoRotate = false to keep the loop view stable, but the user can drag. Hmm, choose: enable autoRotate at 0.6 speed? I'll leave it off and add a subtle camera drift? No — keep it stable.
+
+Let me write the animation with a fixed period, e.g., 0.75s per stride for a gallop.
+
+Now the detailed hierarchy.
+
+```
+horse (Group, y=0)
+  body (Group)  -- bobs vertically and pitches
+    barrel, chest, rump, mane, 
+    neck (Group at withers) -> neckMesh, headGroup -> head, muzzle, ears
+    tailGroup -> tail segments
+    legs attached to body group? 
+```
+
+Legs should attach to the body group so they bob with it. But then the hooves would float above/below the ground. For a running horse in the air, that's fine — the whole horse leaves the ground during suspension. But it can look odd. I'll keep the body bob small (0.06) so it reads as gait.
+
+Actually attach legs to the body group. Yes.
+
+Leg construction function:
+
+```js
+function makeLeg(front) {
+  const hip = new THREE.Group();
+  const upperLen = front ? 0.46 : 0.5;
+  const lowerLen = front ? 0.42 : 0.44;
+  const upper = cyl(0.11, 0.085, upperLen, 6, legMat);
+  upper.position.y = -upperLen/2;
+  hip.add(upper);
+  const knee = new THREE.Group();
+  knee.position.y = -upperLen;
+  hip.add(knee);
+  const lower = cyl(0.075, 0.06, lowerLen, 6, legMat);
+  lower.position.y = -lowerLen/2;
+  knee.add(lower);
+  const hoof = box(0.16, 0.13, 0.22, hoofMat);
+  hoof.position.set(0, -lowerLen - 0.05, 0.02);
+  knee.add(hoof);
+  return {hip, knee, upperLen, lowerLen};
+}
+```
+
+Total leg length front: 0.46+0.42+~0.13/2... hoof bottom at -0.46-0.42-0.05-0.065 ≈ -0.995. So belly needs to be around y = 1.0 above ground for standing. Let's set hip y at 1.15 so hooves at 0.155 — slightly floating. Let me compute: I want hoof bottom at ~0.02.
+
+Let me set upperLen = 0.5, lowerLen = 0.5 for both, hoof center at -(1.0 + 0.06), hoof height 0.14 → bottom at -1.13 from hip. So hip y = 1.15 gives hoof bottom at 0.02. Good.
+
+But with knees bent during animation, the hoof lifts — good.
+
+Body center: barrel at y = 1.55, height 0.85 → belly at 1.125. Hip at 1.15. Close enough. Legs attach at hip y=1.15.
+
+Let me lay out along z (front = +Z):
+- Front hips at z = +0.55, x = ±0.26.
+- Hind hips at z = -0.6, x = ±0.28.
+- Barrel: box(0.75, 0.82, 1.35) at (0, 1.5, -0.05).
+- Chest: box(0.68, 0.8, 0.5) at (0, 1.52, 0.62). Actually the chest is where the front legs attach.
+- Rump: box(0.78, 0.85, 0.6) at (0, 1.52, -0.78).
+
+Hmm, let me make a continuous body with three boxes overlapping. Fine.
+
+Withers/shoulder top at y ≈ 1.9. Neck starts at (0, 1.85, 0.55).
+
+Neck group at (0, 1.8, 0.5), rotated -0.9 rad about X? Rotating about X: the neck mesh is a box tall along Y; to tilt it forward-up we rotate about X by a negative angle (top goes toward +Z). Check: point (0,1,0) rotated by a about X → (0, cos a, sin a). For a negative a, top goes to -Z. Hmm so positive a puts the top toward +Z. Wait: z' = y sin a + z cos a. With y=1, z=0: z' = sin a. So positive a → top tilts toward +Z (forward). Good, so neck rotation.x = +0.85, which tilts the neck top forward. But I want the neck to go up and forward from the withers — yes, positive.
+
+Hmm, but careful: the neck should attach at the base and extend up-forward. A box of height 0.75 centered at y=0.375 in the neck group, group rotated +0.85 rad about X... that tilts the top forward. Then the head at the top.
+
+Actually wait, I realize for a galloping horse the neck extends forward, so tilt ~ 55-70° from vertical. Use 0.75 rad (43°).
+
+Head group at the top of the neck: position (0, 0.72, 0) in the neck group's local frame. Head box (0.34, 0.4, 0.62) but the head extends forward from the neck. Rotate head -0.8 (so it points forward/down relative to the neck). Let me structure:
+
+neckGroup.rotation.x = 0.75 (base tilt)
+headGroup at (0, 0.7, 0.04) inside neckGroup; headGroup.rotation.x = -0.6 to bring the head horizontal-ish. But the neck tilt accumulates: total = 0.75 - 0.6 = 0.15 rad from vertical... that means the head's local Y axis is nearly world Y, and the head box is oriented along its local Y (skull) which would be nearly vertical. Hmm.
+
+Let me instead build the head as a box elongated along Z (the muzzle direction), and place it at the top of the neck. Head box (0.32, 0.36, 0.7) centered at origin. headGroup rotation.x = -0.75 to cancel the neck tilt, so the head is level facing +Z. Then the head group's local +Z is world +Z. Good.
+
+Then the muzzle box at (0, -0.04, 0.42) size (0.24, 0.24, 0.3). Ears: two small cones at (±0.1, 0.22, -0.2).
+
+Withers-to-head: neck base at (0, 1.8, 0.5). With neck length 0.75 tilted 0.75 rad: top ends at y = 1.8 + 0.75cos(0.75) = 1.8+0.55 = 2.35, z = 0.5 + 0.75 sin(0.75) = 0.5+0.51 = 1.01. So head at y 2.35, z 1.01. Horse total height ~2.5. That's a bit high relative to body length ~2.0, but horses are tall. Withers height 1.9. Head at 2.35 seems plausible (head above withers when alert). Fine.
+
+Hmm, but the neck attach at (0,1.8,0.5) — chest box spans z 0.37..0.87 at y up to ~1.92. Good, the neck base is inside the chest.
+
+Tail: tailGroup at (0, 1.72, -1.05) (rear of rump). Segments going down-back. Tail base rotation.x = -0.5 (tilting back). Tail is along -Y in its local frame, rotating about X by negative moves the -Y direction... point (0,-1,0) with a: z' = -sin a. Negative a → z' positive → tail bottom goes forward. Wrong. Positive a → z' negative → tail goes backward. So tailGroup.rotation.x = +0.6 or so to sweep the tail back. Hmm wait, let me recheck. Rotation about X by angle a: (y,z) → (y cos a − z sin a, y sin a + z cos a). Point (0,−1,0): y'=−cos a, z'=−sin a. For a=+0.6: z' = −0.56 → backward (−Z). Yes, positive rotation.x sweeps the tail backward. 
+
+Rump is at z −1.08. Tail base at (0, 1.7, −1.0), rotation.x = 0.5, then segments of boxes going down: (0.2, 0.45, 0.2) at y −0.22, etc. Add 3 segments with decreasing size for a low-poly tail. Or use a single tapered cylinder.
+
+Let's do: tailRoot group → 3 stacked boxes each slightly rotated for a curve. Plus a sway animation: tailRoot.rotation.z = sin(2πt)*0.15 and each segment gets extra.
+
+Mane: a few flat boxes along the neck top. Since the neck is a rotated group, add mane meshes as children of neckGroup at z = -0.18 (behind the neck), stacked along y. E.g., 4 boxes of (0.06, 0.3, 0.16) at y = 0.15,0.35,0.55,0.72, z = -0.17. That gives a crest. Color dark.
+
+Also a forelock maybe. Skip.
+
+Now the animation.
+
+```js
+const PERIOD = 0.8;
+const legs = [ {leg: frontL, phase: 0.5, ...}, ... ];
+```
+
+Gallop phase assignment (transverse gallop, left lead): order of footfalls LH, RH, LF, RF. Phases:
+- LH: 0.0
+- RH: 0.08
+- LF: 0.5
+- RF: 0.58
+
+Hmm actually a gallop has the two hind legs close together, then the two front legs close together, then suspension. Let's use:
+- hindL 0.00, hindR 0.10, frontL 0.45, frontR 0.55.
+
+That's fine and reads as a gallop.
+
+For each leg:
+```js
+const p = 2π(t - phase);
+const swing = Math.sin(p);
+hip.rotation.x = -swing * 0.62;            // negative = forward
+const fold = Math.max(0, Math.sin(p + 0.35));  // 0..1 during forward swing
+knee.rotation.x = fold * 1.15 + 0.08;
+```
+Wait — when the leg is fully forward (swing=1), the knee should be folded. During the stance (leg under/behind), the knee straightens. fold peaks slightly after full forward? Let's use fold = clamp(sin(p))^1 with a shift. I'll use `const fold = Math.max(0, Math.sin(p));`.
+
+Then when swing = −1 (leg back), fold = 0, leg straight back. When swing = +1 (leg forward), fold = 1, hoof tucked. During the transition (p from π to 2π, swing from 0 to −1... wait).
+
+Actually p from 0 to π: sin positive, leg goes forward and folds; p from π to 2π: sin negative, leg goes back and extends. That matches: the leg folds while swinging forward, extends while pushing back. 
+
+But wait — that means the stance (foot planted, pushing back) is the second half, and the foot should be on the ground. During the push-back the leg is extended and the hip rotates back; the hoof will trace an arc, going below ground at some points or above. With hip at y=1.15 and full leg 1.13, when the leg is at angle a, the hoof is at y = 1.15 − 1.13cos(a) and z = 0.55 − 1.13 sin(a)... wait for the front leg, forward is +Z, and rotation.x = −swing*0.62. When swing = −1, rotation.x = +0.62 → the foot goes to −Z (backward) by 1.13 sin(0.62) = 0.65, and y = 1.15 − 1.13cos(0.62) = 1.15 − 0.92 = 0.23. So the hoof rises 0.23 above ground? No wait, y=0.23 means it's 0.23 above the ground — floating. Hmm. When the leg is vertical (a=0), the hoof is at y=1.15−1.13 = 0.02, on the ground. When rotated, since the hip is fixed, the hoof rises. That's expected for a rigid pendulum, and with the body bob it can be masked. It'll look like the horse is galloping (airborne), which is fine — a gallop has an airborne phase. 
+
+To sell it more, add the body bob upward during the airborne phase and downward at contact. Body y offset: for a gallop with the footfall order above, contacts happen around phase 0-0.6 and suspension around 0.7-0.9. Let me set bodyLift = 0.10 * (0.5 + 0.5*cos(2π(t − 0.8)))... simpler: body.position.y = 0.09 * Math.sin(2π(t*1)) with a phase shift. Let me just use `body.position.y = baseY + 0.07*Math.sin(2π(t+0.25))`. Hmm. Honestly a smooth bob at the stride frequency looks fine.
+
+Actually a gallop typically has one suspension phase per stride, so bob at the stride frequency (1 per cycle) is right. Use `0.08 * Math.sin(2πt + something)`.
+
+Also pitch: `body.rotation.x = 0.06 * Math.sin(2πt + phase)` and roll: `body.rotation.z = 0.04 * sin(2πt)`.
+
+Head/neck nod: `neck.rotation.x = 0.75 + 0.10 * Math.sin(2πt + π/2)` (antiphase to the body bob) and head counter-rotates.
+
+Tail: `tailRoot.rotation.x = 0.5 + 0.12*sin(2πt)`, plus each segment swaying with `rotation.z = 0.1*sin(2πt + i*0.6)`.
+
+All using sin/cos of 2πt so t=0 and t=1 match exactly → seamless.
+
+Also I should keep the whole horse group static (no forward translation), since it's a loop; optionally the ground could scroll. Better: keep it in place running on a treadmill — but a galloping horse in place is what's asked ("running in a seamless loop"). Alternatively translate the horse forward and loop the ground. That complicates. I'll keep the horse centered and add scrolling ground texture? No texture. Keep it simple: the horse runs in place, camera orbits slowly maybe.
+
+Actually, to make it feel like running, I could move the horse forward and wrap it back to the start — but with a fixed camera that would look bad unless the ground repeats. Let's just do in-place with the ground being a large plane, and add subtle "speed lines"? No. In-place gallop is standard for such demos.
+
+Add a subtle ground: plane rotated -π/2, color dark. Add a grid via GridHelper for motion reference? A grid conveys the environment nicely and is low-poly-ish. I'll add a GridHelper with muted colors so the running reads. Actually without forward motion, a grid doesn't add much. I'll add a few low-poly cones as background hills/trees for parallax... but the camera is static. Keep it: ground + fog + shadow. Maybe a few scattered rocks so the scene isn't empty. I'll add a simple circular "arena" plane and a ring of low-poly cones (trees) — cheap and looks nice. Or skip. I'll add a handful of dark green cones as distant trees for depth. That's fine and few lines.
+
+Let me now write the code.
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Low-Poly Horse — Seamless Gallop</title>
+<style>
+  html, body { margin:0; height:100%; overflow:hidden; background:#0b1020; }
+  canvas { display:block; }
+  #hud { position:fixed; left:12px; bottom:10px; font:12px/1.4 ui-monospace, monospace; color:#8fa0c0; opacity:.75; pointer-events:none; }
+</style>
+</head>
+<body>
+<div id="hud">drag to orbit · scroll to zoom</div>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+...
+</script>
+</body>
+</html>
+```
+
+Now the module code.
+
+```js
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0e1526);
+scene.fog = new THREE.Fog(0x0e1526, 9, 26);
+
+const camera = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 0.1, 100);
+camera.position.set(4.2, 2.4, 5.4);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1.4, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.07;
+controls.minDistance = 2.5;
+controls.maxDistance = 14;
+controls.maxPolarAngle = Math.PI * 0.495;
+controls.update();
+```
+
+Lights:
+```js
+scene.add(new THREE.HemisphereLight(0x9fc2ff, 0x1a2233, 0.85));
+
+const key = new THREE.DirectionalLight(0xfff0d0, 2.1);
+key.position.set(5, 8, 4);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.near = 1; key.shadow.camera.far = 30;
+key.shadow.camera.left = -7; right 7; top 7; bottom -7;
+key.shadow.bias = -0.0009;
+scene.add(key);
+
+const rim = new THREE.DirectionalLight(0x6ea8ff, 0.9);
+rim.position.set(-6, 3, -5);
+scene.add(rim);
+```
+
+Ground:
+```js
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(30, 48),
+  new THREE.MeshStandardMaterial({ color: 0x1c2b3a, roughness: 1, metalness: 0, flatShading: true })
+);
+ground.rotation.x = -Math.PI/2;
+ground.receiveShadow = true;
+scene.add(ground);
+```
+
+Trees: 
+```js
+const treeMat = new THREE.MeshStandardMaterial({color:0x25412f, flatShading:true});
+const trunkMat = ...
+for (let i=0;i<14;i++){
+  const a = i/14 * Math.PI*2 + 0.3;
+  const r = 9 + (i%3)*1.6;
+  ...
+}
+```
+Cones with 6 radial segments. Place them out of the shadow camera? The shadow camera is ±7, so trees at r=9 are outside, fine.
+
+Horse materials:
+```js
+const coat = new THREE.MeshStandardMaterial({ color: 0xb5643a, roughness: 0.85, metalness: 0.05, flatShading: true });
+const dark = new THREE.MeshStandardMaterial({ color: 0x2a2018, roughness: 0.9, flatShading: true });
+const hoof = new THREE.MeshStandardMaterial({ color: 0x1d1a17, roughness: 0.6, flatShading: true });
+const muzzleMat = ...
+```
+
+Helper:
+```js
+function part(geo, mat, x=0,y=0,z=0){ const m = new THREE.Mesh(geo, mat); m.position.set(x,y,z); m.castShadow = true; m.receiveShadow = true; return m; }
+const box = (w,h,d) => new THREE.BoxGeometry(w,h,d);
+const cyl = (rt,rb,h,seg=6) => new THREE.CylinderGeometry(rt,rb,h,seg,1);
+```
+
+Build. I'll write it as a function buildHorse() returning { root, body, neck, head, tail, legs }.
+
+Let me write it out concretely.
+
+```js
+const HORSE_Y = 1.18; // hip height
+
+const horse = new THREE.Group();
+scene.add(horse);
+
+const body = new THREE.Group();
+body.position.y = 0;
+horse.add(body);
+```
+
+Wait — I want body.position.y to be animated as a bob around 0, and the geometry positioned in absolute terms. Let's make body a group at y=0 and put all meshes at their absolute y positions. Then body.position.y = bob. Good.
+
+Body meshes:
+```js
+body.add(part(box(0.72, 0.78, 1.30), coat, 0, 1.52, -0.05));   // barrel
+body.add(part(box(0.76, 0.84, 0.62), coat, 0, 1.54, -0.72));   // hindquarters
+body.add(part(box(0.66, 0.80, 0.52), coat, 0, 1.54, 0.60));    // chest
+```
+Hmm the barrel top at 1.91, the chest top at 1.94, hindquarters top 1.96. Withers ~1.95. OK.
+
+But these boxes overlapping might z-fight? They're solid overlapping meshes, not coplanar, so no z-fighting.
+
+Actually, to get a more horse-like silhouette, taper: use a slightly rotated box or a cylinder with 6 segments along Z for the barrel. Let's use a cylinder along Z: `new THREE.CylinderGeometry(0.42, 0.42, 1.35, 8)` rotated 90° about X so its axis lies along Z. That gives an octagonal barrel — very low-poly and reads as a body. Nice.
+
+```js
+const barrel = part(new THREE.CylinderGeometry(0.40, 0.36, 1.35, 8), coat, 0, 1.5, -0.05);
+barrel.rotation.x = Math.PI/2;
+```
+Cylinder axis is Y; rotating about X by π/2 makes the axis point along Z. Top radius 0.40 (which becomes the rear or front depending on sign) — after rotation.x = π/2: the +Y end maps to +Z? Point (0,1,0) rotated by +π/2 about X → y'=0*... let's compute: y' = y cos − z sin = 0, z' = y sin + z cos = 1. So +Y → +Z. So the "top" radius (first arg, radiusTop) goes to the front (+Z). So radiusTop 0.36 (front), radiusBottom 0.40 (rear). Good: chest narrower? Actually the horse's barrel is widest at the ribs (middle-rear). Fine.
+
+Chest: a box or a sphere. Use an IcosahedronGeometry(0.42, 0) at (0,1.55,0.6)? A low-poly icosahedron is a nice low-poly shape. Let's do:
+- chest: Icosahedron(0.42, 0) scaled (0.9, 1.0, 0.9) at (0,1.55,0.62).
+- rump: Icosahedron(0.45,0) scaled at (0,1.55,-0.78).
+
+Hmm, mixing spheres and cylinders. It's fine and reads low-poly with flat shading.
+
+Actually simpler & cleaner: use boxes with slight rotations for everything. Boxes with flat shading are the classic low-poly look. But a horse made only of axis-aligned boxes looks blocky-cute — acceptable, it's "low-poly". I'll mix: boxes for body segments, cylinders (6-sided) for legs and neck, cones for ears.
+
+Let me finalize:
+
+- barrel (box): 0.70 × 0.78 × 1.30 at (0, 1.50, −0.05)
+- chest (box): 0.62 × 0.74 × 0.60 at (0, 1.52, 0.60), slight rotation? no
+- rump (box): 0.74 × 0.80 × 0.66 at (0, 1.52, −0.78)
+
+Total length from z=0.9 to −1.11 → 2.0. Height 1.9 at the top. Reasonable proportions for a horse (body length ≈ height at withers).
+
+Neck group at (0, 1.82, 0.52), rotation.x = 0.75.
+Neck mesh: cylinder (0.26, 0.20, 0.78, 6) at local (0, 0.39, 0) — a slight taper. Hmm, radiusTop 0.16 (toward the head, thinner), radiusBottom 0.26 (at the shoulders). Wait, in the cylinder's local Y, +Y is toward the top which after rotation.x=0.75 tilts forward-ish. So radiusTop should be the poll (head end) = 0.17, radiusBottom = 0.26. Good.
+
+Mane: boxes on the back of the neck (−Z local). Add 4 boxes (0.05, 0.22, 0.14) at y = 0.14, 0.34, 0.54, 0.70, z = −0.2 approx, rotated slightly. Use dark material.
+
+Head group: child of neckGroup at local (0, 0.80, 0.02). headGroup.rotation.x = −0.72 (to roughly cancel the neck tilt so the head is level). Actually 0.75 − 0.72 = 0.03, nearly level. Good.
+
+Head mesh: box(0.30, 0.30, 0.52) at local (0, 0.05, 0.14) — extends forward.
+Hmm, with the head group level, +Z is forward. Head box centered at (0,0,0.1) size (0.28, 0.32, 0.5). Muzzle box (0.20, 0.20, 0.26) at (0, −0.05, 0.42) — tapering forward, use a slightly smaller box. Nose tip dark.
+
+Ears: cones (0.07, 0.18, 4) at (±0.10, 0.24, −0.10), slight outward tilt.
+
+Actually, let me double check the head placement visually. Neck base at world (0,1.82,0.52), neck direction after rotation.x=0.75: local +Y maps to world (0, cos0.75, sin0.75) = (0, 0.7317, 0.6816). Head group at local y=0.80 → world offset (0, 0.585, 0.545). So the head is at (0, 2.405, 1.065). Total horse height ~2.6 at the ears. Withers 1.9. Head top above withers by ~0.6. Realistic-ish for an alert horse (head height above withers is usually ~0.3-0.5 for a horse standing). It's fine; slightly high but looks good.
+
+Hmm, actually let me reduce: neck length 0.7 and neck base at (0,1.78,0.5) → head at y ≈ 2.29. Fine.
+
+Tail group at (0, 1.72, −1.08), rotation.x = 0.45.
+Tail: 3 segments, each a box: (0.16, 0.42, 0.16) at local y −0.21, then child group at y −0.42 with (0.13,0.4,0.13), then (0.10,0.36,0.10). Actually simpler: a chain of groups for sway. Let's do:
+
+```js
+const tailSegs = [];
+let parent = tailRoot;
+for (let i=0;i<3;i++){
+  const g = new THREE.Group();
+  g.position.y = i===0 ? 0 : -0.36;
+  const w = 0.17 - i*0.035;
+  const m = part(box(w, 0.42, w), i===0?coat:dark, 0, -0.21, 0);
+  g.add(m);
+  parent.add(g);
+  tailSegs.push(g);
+  parent = g;
+}
+tailRoot.position.set(0,1.74,-1.05);
+tailRoot.rotation.x = 0.5;
+```
+Wait, if child groups are at y=−0.36 but the mesh spans −0.42..0, then the child group at −0.36 is inside the previous segment. Slight overlap is fine for a low-poly tail. Let me set the mesh at y = −0.19 with height 0.38, and the child group at y = −0.38.
+
+Tail color: dark (like the mane), with the first segment coat-colored? Make the whole tail dark — horses have dark tails often. Use dark for all.
+
+Legs. Attach to `body` so they bob. But hooves penetrating the ground when the body bobs down... bob is small. Fine.
+
+```js
+function buildLeg(side, front) {
+  const hip = new THREE.Group();
+  hip.position.set(side * (front ? 0.24 : 0.27), 1.20, front ? 0.58 : -0.66);
+  body.add(hip);
+
+  const upperLen = 0.52, lowerLen = 0.50;
+
+  const upper = part(cyl(0.12, 0.085, upperLen), coat, 0, -upperLen/2, 0);
+  hip.add(upper);
+
+  const knee = new THREE.Group();
+  knee.position.y = -upperLen;
+  hip.add(knee);
+
+  const lower = part(cyl(0.075, 0.055, lowerLen), coat, 0, -lowerLen/2, 0);
+  knee.add(lower);
+
+  const hoofMesh = part(box(0.15, 0.13, 0.20), hoof, 0, -lowerLen - 0.05, 0.015);
+  knee.add(hoofMesh);
+
+  return { hip, knee };
+}
+```
+Hoof bottom: hip.y 1.20 − 0.52 − 0.50 − 0.05 − 0.065 = 0.065 above ground. Good, the hooves sit just at the ground when standing straight. With the animation folds, they lift.
+
+Also add a shoulder/haunch mass: a box at the top of each leg to blend with the body. For front legs, a small box (0.22,0.34,0.30) at hip local y −0.1. For the hind, a bigger haunch: (0.26,0.44,0.38). Include in the hip group so it rotates. Hmm, rotating the haunch looks odd but is fine at small amplitude. Better: put the shoulder mass as a static child of body (not rotating). Let's do that — add to body:
+
+```js
+body.add(part(box(0.24,0.36,0.34), coat, ±0.24, 1.16, 0.58));
+body.add(part(box(0.28,0.46,0.42), coat, ±0.27, 1.12, -0.66));
+```
+Hmm the hind haunch from y 0.89 to 1.35. OK.
+
+Now leg phase config:
+```js
+const legs = [
+  { ...buildLeg(-1, false), phase: 0.00 },  // left hind
+  { ...buildLeg( 1, false), phase: 0.10 },  // right hind
+  { ...buildLeg(-1, true ), phase: 0.45 },  // left front
+  { ...buildLeg( 1, true ), phase: 0.55 },  // right front
+];
+```
+Spread objects give hip/knee.
+
+Animation loop:
+
+```js
+const PERIOD = 0.78;
+const clock = new THREE.Clock();
+
+function animate() {
+  const t = (clock.getElapsedTime() / PERIOD) % 1;
+  const w = t * Math.PI * 2;
+  ...
+}
+```
+
+Careful: clock.getElapsedTime() grows and % 1 keeps it in [0,1). At t wrapping, all functions using sin(2πt) are continuous. Good.
+
+Leg animation:
+```js
+for (const leg of legs) {
+  const p = (t - leg.phase) * Math.PI * 2;
+  const swing = Math.sin(p);
+  const fold = Math.max(0, Math.sin(p));
+  leg.hip.rotation.x = -swing * 0.58;
+  leg.knee.rotation.x = 0.12 + fold * fold * 1.25;
+}
+```
+Using fold² makes the fold sharper. When fold=1, knee rotation 1.37 rad (78°) — the lower leg tucks under. Good.
+
+But note: for the front legs, the knee bending backward with rotation.x positive... for the front leg, the carpus bends backward. For the hind leg, the hock bends the lower leg backward too (the cannon points down-forward from the hock; when flexed, the hoof comes up and forward). Eh, close enough visually. Actually for the hind leg, a positive knee rotation moves the hoof backward, which is anatomically the opposite of a hock flex. To improve, I could make the hind legs' base angle different: hind legs have a bent hock naturally. Let me give the hind leg a static bend: hip.rotation.x = ... hmm.
+
+Alternative: give the hind leg segments a static offset — the hind cannon is angled. Set for hind legs: hip base rotation.x = 0.0, knee base rotation.x = 0.15, and the hoof shifted forward slightly. And the animation adds to that. Also the hind hip is placed a bit more forward. It's a stylized low-poly horse; I'll add a modest static hind bend via the knee group's base rotation with the animation added on top, and I'll bend the hind leg the anatomically correct direction: for a hind leg, when it folds, the hoof comes up and forward — so negative rotation.x? Let's think: the hind leg has the stifle forward, the hock behind, and the cannon going down and slightly forward to the hoof. When the leg folds during the swing, the hoof tucks up toward the belly. Visually with our two-segment leg, rotating the lower segment positively (backward) tucks the hoof backward-up; the hip is at the back so this makes the hoof come under the body — that reads correctly enough.
+
+I'll keep the same sign for both but give the hind a base flex. Actually, simplest: use a slight asymmetry in the amplitude — hind legs with a bigger swing (they drive). Let's add `leg.swing` and `leg.flex` per leg.
+
+```js
+{ hip, knee, phase: 0.00, swing: 0.66, flex: 1.30, base: 0.10 },
+{..., phase: 0.10, swing: 0.66, flex: 1.30, base: 0.10 },
+{..., phase: 0.45, swing: 0.52, flex: 1.05, base: 0.05 },
+{..., phase: 0.55, swing: 0.52, flex: 1.05, base: 0.05 },
+```
+
+Now the body:
+```js
+body.position.y = 0.05 * Math.sin(w + 1.2) + 0.02*Math.sin(2*w);
+body.rotation.x = 0.05 * Math.sin(w + 2.0);
+body.rotation.z = 0.035 * Math.sin(w);
+```
+Hmm, rotation.x on the body group pivots around the group origin (0,0,0) which is at the ground level, so a rotation of 0.05 rad would swing the body horizontally by 1.5*0.05 = 0.075 in y — that's a lot of vertical movement at the head. Better to put the body pivot at the chest: make the body group positioned at y=1.5 and offset children by −1.5. That complicates. Alternative: use a nested group: `horse → bodyPivot (at y 1.5) → body (at y −1.5) → meshes at absolute y`. Then bodyPivot.rotation.x is around the body center, and bodyPivot.position.y is the bob.
+
+Let's do that:
+```js
+const bodyPivot = new THREE.Group();
+bodyPivot.position.set(0, 1.45, 0);
+horse.add(bodyPivot);
+const body = new THREE.Group();
+body.position.y = -1.45;
+bodyPivot.add(body);
+```
+Then all meshes use their absolute-ish coordinates in `body`. Bob: bodyPivot.position.y = 1.45 + bob. Pitch: bodyPivot.rotation.x = pitch. Roll: bodyPivot.rotation.z.
+
+But then the neck/tail/legs are children of `body`, which is a child of bodyPivot — all inherit the bob and pitch. Good.
+
+The hip positions are in body coordinates at y = 1.20, so after body.position.y = −1.45 relative to the pivot at 1.45, they're at world y 1.20. Good.
+
+Now the neck nod: neck.rotation.x = 0.75 + 0.09 * Math.sin(w + π) (antiphase). And head: headGroup.rotation.x = −0.72 − 0.10*Math.sin(w + π) to keep the head level while the neck nods. Actually with the neck nodding, the head counter-rotating by the same amount keeps it level. Let's set head.rotation.x = -0.72 - (neck.rotation.x - 0.75). That makes the head world-level. Good.
+
+Tail: 
+```js
+tailRoot.rotation.x = 0.50 + 0.10 * Math.sin(w);
+tailRoot.rotation.z = 0.10 * Math.sin(w * 1 + 0.5);
+```
+Wait, all must be at integer multiples of w for a seamless loop — w = 2πt, so sin(w) is periodic with period 1 in t. sin(2w) also. Any integer frequency is fine. sin(w*1 + 0.5) fine.
+
+Segments:
+```js
+tailSegs.forEach((g, i) => {
+  g.rotation.z = 0.16 * Math.sin(w - i * 0.7);
+  g.rotation.x = 0.14 * Math.sin(w - i * 0.9 + 1.0);
+});
+```
+Note the first tail group is at y=0 in the root, so rotating it is like a mid-joint. Fine.
+
+Mane flutter: skip or small.
+
+Also add a slight "gallop" head bob in y? No.
+
+Camera: keep static-ish with damping and no autorotate. Maybe slowly orbit for a nice presentation: `controls.autoRotate = true; controls.autoRotateSpeed = 0.45;` — the user asked for a seamless loop; a slow orbit also loops (well, it doesn't need to). I'll enable a gentle auto-rotate so the running is visible from all sides, but allow the user to drag (OrbitControls pauses autoRotate while dragging? No, it keeps rotating. There's `controls.autoRotate` continue; it does keep rotating during drag which can feel fighting. Actually OrbitControls with autoRotate keeps auto-rotating; while dragging it also applies the drag. It's a bit odd but acceptable.) I'll keep autoRotate off and instead leave a static 3/4 view. Hmm. A static camera showing a horse galloping in place from a 3/4 view is fine. I'll set a subtle autoRotate = true with speed 0.5 — it showcases the model. I'll go with it. Actually let me not fight the user: set autoRotate = true. Fine.
+
+Also add a shadow-catching soft circle? The directional shadow on the ground is enough.
+
+Resize handler:
+```js
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+```
+
+Render loop with renderer.setAnimationLoop(animate).
+
+Now, careful with `part()` receiving a geometry and material. Also, shadows: castShadow on all meshes; receiveShadow too.
+
+One more: the horse scale. Total body length 2.0, height 1.9. Camera at (4.2,2.4,5.4), target (0,1.4,0): distance ≈ sqrt(17.6+1+29) ≈ 6.9. With fov 42, the vertical extent at 6.9 is 2*6.9*tan(21°) = 5.3. The horse is 2.6 tall — occupies half the frame. Good.
+
+Let me also make the ground shadow softer.
+
+Now, potential issue: `THREE.CylinderGeometry(rt, rb, h, seg, 1)` — fine.
+
+Ears: `ConeGeometry(0.075, 0.2, 4)`.
+
+Let me write out the complete final code carefully.
+
+One more consideration: `body.add(part(...))` for the shoulder masses — they're inside `body` which is inside `bodyPivot`, so they pitch with the body. That's fine.
+
+Let me also double check the mane boxes are behind the neck (local −Z). In neckGroup local space, after rotation.x = 0.75, local −Z maps to world... local (0,0,−1) rotated by a: y' = −z sin a = sin a... wait use the formula: y' = y cos a − z sin a = 0 − (−1)(sin a) = sin a; z' = y sin a + z cos a = −cos a. So local −Z → world (0, sin 0.75, −cos 0.75) = (0, 0.68, −0.73): up and backward. The neck's back-upper surface. That's where the mane goes (on the crest of the neck). Good.
+
+The neck cylinder has radius 0.17-0.26, so the mane at local z = −0.22 sits just outside the surface. Good, for the lower part (radius 0.26) it'd be inside; use z = −0.24 and it's fine, partially embedded is okay for low-poly.
+
+Actually, the mane should follow the crest, and the crest is the top-back of the neck. Since the neck is a cylinder in local space aligned with Y, the "back" side is −Z. So place the mane boxes at z ≈ −0.2 with a width of 0.06 (x) — thin plates. Let me place 5 of them along y from 0.05 to 0.78 with slight size variation, and each rotated a touch (rotation.x = −0.12) so they fan.
+
+Alternatively, a single elongated box along the neck: box(0.07, 0.85, 0.18) at (0, 0.4, −0.19) rotated slightly. Simpler and cleaner. Then add 2-3 smaller boxes for the forelock. I'll do the single-plate mane plus a couple of jagged pieces. Let's do 4 stacked plates with slightly increasing z for a spiky mane look. Keep it.
+
+Let me write the code now, final.
+
+```js
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+document.body.appendChild(renderer.domElement);
+```
+
+ACES tone mapping darkens; adjust light intensities. With MeshStandardMaterial and ACES, the colors get desaturated. Maybe skip tone mapping for a clean low-poly look. I'll skip it (NoToneMapping default). Use outputColorSpace default sRGB.
+
+Lights with intensity ~2.2 for the key since r155 changed lighting (useLegacyLights removed). With physically correct lighting, DirectionalLight intensity 2-3 is fine.
+
+OK writing final.
+
+Also note: the ground circle radius 30 with fog 9..26 — the ground fades into fog. Good.
+
+Trees at r=9..13 will be foggy. Good.
+
+Let me write out the trees:
+
+```js
+const trunkMat = new THREE.MeshStandardMaterial({ color: 0x2c2318, roughness: 1, flatShading: true });
+const leafMat = new THREE.MeshStandardMaterial({ color: 0x27402c, roughness: 1, flatShading: true });
+for (let i = 0; i < 16; i++) {
+  const a = (i / 16) * Math.PI * 2 + 0.4;
+  const r = 9 + ((i * 7) % 5) * 1.1;
+  const s = 0.8 + ((i * 13) % 5) * 0.18;
+  const tree = new THREE.Group();
+  const h = 2.2 * s;
+  tree.add(part(box(0.22*s, h, 0.22*s), trunkMat, 0, h/2, 0));
+  const canopy = new THREE.Mesh(new THREE.ConeGeometry(0.95*s, 1.9*s, 6), leafMat);
+  canopy.position.y = h + 0.7*s;
+  canopy.castShadow = true;
+  tree.add(canopy);
+  tree.position.set(Math.cos(a)*r, 0, Math.sin(a)*r);
+  scene.add(tree);
+}
+```
+`part` needs to be defined before. And `part` sets castShadow/receiveShadow.
+
+Fine. But is the shadow camera ±7 going to clip? Trees are outside, so the light doesn't cast tree shadows into view — acceptable. Actually the shadow camera far/near needs to cover the horse. key.position (5,8,4), target origin, distance ~10.2. Set near 1, far 30. Left/right/top/bottom ±6 covers the horse (2.6 tall, 2 long). Good.
+
+Let me finalize the whole thing. I need to double-check the seamless loop: everything is a function of t within [0,1) via sin/cos of 2πt (integer multiples). Yes.
+
+Write it.
+
+One more: the `%` operation on clock elapsed gives t. At t→1⁻ it approaches the same state as t=0. Seamless. Good.
+
+I'll write the final HTML now. No fences, no explanation, just HTML.
+
+Let me be careful with the `part` helper signature: part(geo, mat, x, y, z).
+
+Also for the ears I need cones — part works with any geometry.
+
+Final code:
+
+```js
+const coat = ...
+function part(geo, mat, x = 0, y = 0, z = 0) { ... }
+```
+
+Order: define part before use.
+
+Let me carefully assemble the horse build.
+
+```js
+const horse = new THREE.Group();
+scene.add(horse);
+
+const pivot = new THREE.Group();
+pivot.position.y = 1.45;
+horse.add(pivot);
+
+const body = new THREE.Group();
+body.position.y = -1.45;
+pivot.add(body);
+
+const barrel = part(new THREE.BoxGeometry(0.70, 0.78, 1.30), coat, 0, 1.50, -0.05);
+body.add(barrel);
+body.add(part(new THREE.BoxGeometry(0.62, 0.74, 0.62), coat, 0, 1.52, 0.60));
+body.add(part(new THREE.BoxGeometry(0.74, 0.80, 0.66), coat, 0, 1.52, -0.78));
+body.add(part(new THREE.BoxGeometry(0.24, 0.36, 0.34), coat, -0.24, 1.16, 0.58));
+body.add(part(new THREE.BoxGeometry(0.24, 0.36, 0.34), coat, 0.24, 1.16, 0.58));
+body.add(part(new THREE.BoxGeometry(0.28, 0.46, 0.42), coat, -0.27, 1.12, -0.66));
+body.add(part(new THREE.BoxGeometry(0.28, 0.46, 0.42), coat, 0.27, 1.12, -0.66));
+```
+
+Wait, shoulder boxes at y 1.16 ± 0.18 → 0.98..1.34, x ±0.24 ± 0.12 → 0.12..0.36. Slight gap to the barrel (half-width 0.35). Overlaps the barrel edge. Good.
+
+Neck:
+
+```js
+const neck = new THREE.Group();
+neck.position.set(0, 1.80, 0.52);
+neck.rotation.x = 0.75;
+body.add(neck);
+
+const neckMesh = part(new THREE.CylinderGeometry(0.17, 0.27, 0.80, 6), coat, 0, 0.40, 0);
+neck.add(neckMesh);
+```
+Hmm, radiusTop 0.17 is the head end (+Y), radiusBottom 0.27 at the base. After rotation +0.75, +Y goes up-forward. Good.
+
+Mane plates on the −Z side:
+```js
+for (let i = 0; i < 4; i++) {
+  const m = part(new THREE.BoxGeometry(0.07, 0.24, 0.16), dark, 0, 0.14 + i * 0.20, -0.21 - i * 0.01);
+  m.rotation.x = -0.1;
+  neck.add(m);
+}
+```
+y from 0.14 to 0.74. The neck spans y 0..0.8. Good. z = −0.21; the neck radius near the top is 0.17, near the bottom 0.27, so at the bottom the mane is embedded, at the top it sticks out. Acceptable. Let me vary z: at i=0 (bottom) z = −0.24, at i=3 (top) z = −0.18. Use `-0.26 + i * 0.025`.
+
+Head:
+```js
+const head = new THREE.Group();
+head.position.set(0, 0.80, 0.02);
+head.rotation.x = -0.72;
+neck.add(head);
+
+head.add(part(new THREE.BoxGeometry(0.28, 0.30, 0.46), coat, 0, 0.04, 0.14));
+head.add(part(new THREE.BoxGeometry(0.22, 0.22, 0.28), coat, 0, -0.04, 0.44));
+head.add(part(new THREE.BoxGeometry(0.23, 0.23, 0.08), dark, 0, -0.04, 0.58));
+```
+Muzzle tip dark. The main head box spans z −0.09..0.37; the muzzle 0.30..0.58; the nose 0.54..0.62. Good.
+
+Ears:
+```js
+for (const s of [-1, 1]) {
+  const ear = part(new THREE.ConeGeometry(0.07, 0.20, 4), coat, s * 0.10, 0.26, -0.06);
+  ear.rotation.z = -s * 0.14;
+  head.add(ear);
+}
+```
+Ear at y 0.26, head box top at 0.19. Cone base at y 0.16, tip at 0.36. Good.
+
+Eyes: small dark boxes at (±0.14, 0.08, 0.22):
+```js
+for (const s of [-1,1]) head.add(part(new THREE.BoxGeometry(0.04,0.06,0.06), dark, s*0.145, 0.09, 0.24));
+```
+Head box half-width 0.14, so at x ±0.145 they stick out slightly. Good.
+
+Tail:
+```js
+const tailRoot = new THREE.Group();
+tailRoot.position.set(0, 1.72, -1.04);
+tailRoot.rotation.x = 0.5;
+body.add(tailRoot);
+const tailSegs = [];
+let tp = tailRoot;
+for (let i = 0; i < 3; i++) {
+  const g = new THREE.Group();
+  g.position.y = i === 0 ? 0 : -0.34;
+  const w = 0.17 - i * 0.04;
+  g.add(part(new THREE.BoxGeometry(w, 0.38, w), dark, 0, -0.19, 0));
+  tp.add(g);
+  tailSegs.push(g);
+  tp = g;
+}
+```
+Segment mesh spans y 0..−0.38 in each group; groups at 0, −0.34, −0.68. Tail total length ~1.06 from (0,1.72,−1.04) going down-back at rotation 0.5: the tip is at roughly y = 1.72 − 1.06cos(0.5) = 1.72−0.93 = 0.79, z = −1.04 − 1.06 sin(0.5) = −1.04−0.51 = −1.55. Fine.
+
+For the leg placement, front z 0.58, rear z −0.66. Chest box spans z 0.29..0.91, rump spans −1.11..−0.45. Good.
+
+Now, everything is set. Write the animation.
+
+```js
+const LEGS = [];
+function buildLeg(side, front) {
+  const hip = new THREE.Group();
+  hip.position.set(side * (front ? 0.24 : 0.27), 1.20, front ? 0.58 : -0.66);
+  body.add(hip);
+  const upperLen = 0.52;
+  const lowerLen = 0.50;
+  hip.add(part(new THREE.CylinderGeometry(0.115, 0.085, upperLen, 6), coat, 0, -upperLen / 2, 0));
+  const knee = new THREE.Group();
+  knee.position.y = -upperLen;
+  hip.add(knee);
+  knee.add(part(new THREE.CylinderGeometry(0.075, 0.055, lowerLen, 6), coat, 0, -lowerLen / 2, 0));
+  knee.add(part(new THREE.BoxGeometry(0.15, 0.13, 0.20), hoofMat, 0, -lowerLen - 0.055, 0.015));
+  return { hip, knee };
+}
+```
+Hoof bottom: 1.20 − 0.52 − 0.50 − 0.055 − 0.065 = 0.06. Good.
+
+Then:
+```js
+const gait = [
+  { leg: buildLeg(-1, false), phase: 0.00, swing: 0.62, flex: 1.25, base: 0.10 },
+  { leg: buildLeg( 1, false), phase: 0.10, swing: 0.62, flex: 1.25, base: 0.10 },
+  { leg: buildLeg(-1, true ), phase: 0.46, swing: 0.50, flex: 1.00, base: 0.04 },
+  { leg: buildLeg( 1, true ), phase: 0.56, swing: 0.50, flex: 1.00, base: 0.04 },
+];
+```
+
+animate:
+```js
+const PERIOD = 0.78;
+const clock = new THREE.Clock();
+
+renderer.setAnimationLoop(() => {
+  const t = (clock.getElapsedTime() / PERIOD) % 1;
+  const w = t * Math.PI * 2;
+
+  pivot.position.y = 1.45 + 0.075 * Math.sin(w + 1.1);
+  pivot.rotation.x = 0.055 * Math.sin(w + 1.9);
+  pivot.rotation.z = 0.03 * Math.sin(w);
+
+  for (const g of gait) {
+    const p = (t - g.phase) * Math.PI * 2;
+    const swing = Math.sin(p);
+    const fold = Math.max(0, Math.sin(p));
+    g.leg.hip.rotation.x = -swing * g.swing;
+    g.leg.knee.rotation.x = g.base + fold * fold * g.flex;
+  }
+
+  neck.rotation.x = 0.75 + 0.10 * Math.sin(w + Math.PI + 0.9);
+  head.rotation.x = -0.72 - (neck.rotation.x - 0.75);
+
+  tailRoot.rotation.x = 0.50 + 0.10 * Math.sin(w + 0.6);
+  tailRoot.rotation.z = 0.09 * Math.sin(w + 1.4);
+  tailSegs.forEach((g, i) => {
+    g.rotation.z = 0.14 * Math.sin(w - i * 0.8);
+    g.rotation.x = 0.12 * Math.sin(w - i * 0.9 + 1.2);
+  });
+
+  controls.update();
+  renderer.render(scene, camera);
+});
+```
+
+Wait: `tailRoot.rotation.z` sway — but the tail root already has rotation.x = 0.5; setting both x and z via Euler is fine.
+
+Issue: `tailSegs[0]` is a group at y=0 inside tailRoot; rotating it about z rotates around the tail root, which is what we want for the mid-tail.
+
+Note: `body` is a child of `pivot`, and `pivot.rotation.x` pitches. Since the body's meshes are offset by body.position.y = −1.45 relative to the pivot at 1.45, pitching the pivot rotates around the point (0,1.45,0) in world space (when bob=0). 
+
+Also: the neck, head, and tail are children of `body`, so they inherit the pivot pitch. Fine.
+
+Potential problem: `head.rotation.x = -0.72 - (neck.rotation.x - 0.75)` — neck.rotation.x ranges 0.65..0.85, so head.rotation.x ranges −0.62..−0.82. The head stays level in world. Good.
+
+Now the meshes' shadow flags. And OrbitControls damping requires update each frame — done.
+
+Also add `renderer.setAnimationLoop`.
+
+Let me now double-check that `part` is used for cones with 4 radial segments: ConeGeometry(radius, height, radialSegments) → ConeGeometry(0.07, 0.20, 4). Good.
+
+One more detail: `flatShading` on materials is enough for the low-poly look; the cylinder with 6 segments will show facets.
+
+Final check on the importmap URL: unpkg three@0.160.0 build/three.module.js exists. And examples/jsm/controls/OrbitControls.js exists. Good.
+
+I could also add a fallback CDN but keep it simple.
+
+Let me also consider: `renderer.outputColorSpace` defaults to SRGB in r152+. Fine.
+
+Write the final answer now — HTML only, no fences.
+
+Let me count that I don't include any comments (per user preferences: no code comments). Right, AGENTS.md says do not add code comments. I'll avoid comments entirely.
+
+Write it.

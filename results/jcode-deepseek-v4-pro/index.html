@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Low-Poly Running Horse</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #000; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+const scene = new THREE.Scene();
+const sky = 0x9fc9e8;
+scene.background = new THREE.Color(sky);
+scene.fog = new THREE.Fog(sky, 18, 90);
+
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 240);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.12;
+document.body.appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x5a7a45, 0.95));
+
+const sun = new THREE.DirectionalLight(0xfff1d6, 1.7);
+sun.position.set(18, 26, 14);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -40;
+sun.shadow.camera.right = 40;
+sun.shadow.camera.top = 40;
+sun.shadow.camera.bottom = -40;
+sun.shadow.camera.near = 5;
+sun.shadow.camera.far = 90;
+sun.shadow.bias = -0.0004;
+scene.add(sun);
+scene.add(sun.target);
+
+// Ground
+const grassMat = new THREE.MeshStandardMaterial({ color: 0x8fbf76, flatShading: true, roughness: 1 });
+const trackMat = new THREE.MeshStandardMaterial({ color: 0xe0c58f, flatShading: true, roughness: 1 });
+
+const grass = new THREE.Mesh(new THREE.CircleGeometry(65, 48), grassMat);
+grass.rotation.x = -Math.PI / 2;
+grass.receiveShadow = true;
+scene.add(grass);
+
+const track = new THREE.Mesh(new THREE.RingGeometry(7.0, 12.6, 64), trackMat);
+track.rotation.x = -Math.PI / 2;
+track.position.y = 0.015;
+track.receiveShadow = true;
+scene.add(track);
+
+const center = new THREE.Mesh(new THREE.CircleGeometry(7.0, 48), grassMat);
+center.rotation.x = -Math.PI / 2;
+center.position.y = 0.008;
+center.receiveShadow = true;
+scene.add(center);
+
+// Scenery
+const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2b, flatShading: true });
+const leafMat = new THREE.MeshStandardMaterial({ color: 0x2e6b3c, flatShading: true });
+const mountMat = new THREE.MeshStandardMaterial({ color: 0x7a8f9d, flatShading: true });
+const snowMat = new THREE.MeshStandardMaterial({ color: 0xeef4f7, flatShading: true });
+const rockMat = new THREE.MeshStandardMaterial({ color: 0x9aa2a8, flatShading: true });
+const postMat = new THREE.MeshStandardMaterial({ color: 0xcbb58a, flatShading: true });
+
+function makeTree(s) {
+  const g = new THREE.Group();
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.2, 0.6, 5), trunkMat);
+  trunk.position.y = 0.3;
+  trunk.castShadow = true;
+  g.add(trunk);
+
+  const c1 = new THREE.Mesh(new THREE.ConeGeometry(0.85, 1.2, 6), leafMat);
+  c1.position.y = 1.0;
+  c1.castShadow = true;
+  g.add(c1);
+
+  const c2 = new THREE.Mesh(new THREE.ConeGeometry(0.62, 1.1, 6), leafMat);
+  c2.position.y = 1.7;
+  c2.castShadow = true;
+  g.add(c2);
+
+  const c3 = new THREE.Mesh(new THREE.ConeGeometry(0.4, 1.0, 6), leafMat);
+  c3.position.y = 2.35;
+  c3.castShadow = true;
+  g.add(c3);
+
+  g.scale.setScalar(s);
+  return g;
+}
+
+function makeMountain(h, w) {
+  const g = new THREE.Group();
+  const mnt = new THREE.Mesh(new THREE.ConeGeometry(w, h, 5), mountMat);
+  mnt.castShadow = true;
+  g.add(mnt);
+
+  const cap = new THREE.Mesh(new THREE.ConeGeometry(w * 0.4, h * 0.22, 5), snowMat);
+  cap.position.y = h / 2 - h * 0.11;
+  cap.castShadow = true;
+  g.add(cap);
+  return g;
+}
+
+for (let i = 0; i < 14; i++) {
+  const a = (i / 14) * Math.PI * 2 + 0.2 * Math.sin(i * 12.7);
+  const r = 15.5 + Math.sin(i * 5.3) * 1.6;
+  const t = makeTree(1.1 + 0.85 * Math.abs(Math.sin(i * 7.1)));
+  t.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+  scene.add(t);
+}
+
+for (let i = 0; i < 8; i++) {
+  const a = (i / 8) * Math.PI * 2 + 0.3;
+  const r = 38 + Math.sin(i * 2.7) * 6;
+  const mt = makeMountain(9 + 6 * Math.abs(Math.sin(i * 9.1)), 4.2 + 2 * Math.sin(i * 3.9));
+  mt.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+  scene.add(mt);
+}
+
+for (let i = 0; i < 16; i++) {
+  const a = (i / 16) * Math.PI * 2;
+  const r = 13.0;
+  const post = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.1), postMat);
+  post.position.set(Math.cos(a) * r, 0.3, Math.sin(a) * r);
+  post.castShadow = true;
+  scene.add(post);
+}
+
+for (let i = 0; i < 18; i++) {
+  const a = Math.sin(i * 3.7) * Math.PI * 2;
+  const r = (i % 2 === 0) ? 3 + 4 * (0.5 + 0.5 * Math.sin(i * 7.7)) : 18 + 8 * (0.5 + 0.5 * Math.sin(i * 5.1));
+  const rock = new THREE.Mesh(
+    new THREE.DodecahedronGeometry(0.25 + 0.35 * Math.abs(Math.sin(i * 4.3))),
+    rockMat
+  );
+  rock.position.set(Math.cos(a) * r, 0.1, Math.sin(a) * r);
+  rock.rotation.set(i, i * 1.3, 0);
+  rock.castShadow = true;
+  scene.add(rock);
+}
+
+// ---- Low-poly horse ----
+function buildHorse() {
+  const root = new THREE.Group();
+
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x9b6a36, flatShading: true, roughness: 0.85 });
+  const chestMat = new THREE.MeshStandardMaterial({ color: 0x8a5630, flatShading: true, roughness: 0.85 });
+  const legMat = new THREE.MeshStandardMaterial({ color: 0x7e4a24, flatShading: true, roughness: 0.8 });
+  const darkMat = new THREE.MeshStandardMaterial({ color: 0x2f1e0e, flatShading: true, roughness: 0.7 });
+  const muzzleMat = new THREE.MeshStandardMaterial({ color: 0xc89a60, flatShading: true, roughness: 0.9 });
+
+  const add = (geo, mat, parent, x, y, z, rx = 0, ry = 0, rz = 0) => {
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x, y, z);
+    mesh.rotation.set(rx, ry, rz);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    parent.add(mesh);
+    return mesh;
+  };
+
+  const body = new THREE.Group();
+  body.position.set(0, 1.05, 0);
+  root.add(body);
+
+  // torso, haunches, chest
+  add(new THREE.BoxGeometry(1.7, 0.62, 0.5), bodyMat, body, 0, 0, 0);
+  add(new THREE.BoxGeometry(0.62, 0.8, 0.58), bodyMat, body, -0.72, 0.08, 0, 0, 0, 0.18);
+  add(new THREE.BoxGeometry(0.46, 0.9, 0.5), chestMat, body, 0.78, -0.15, 0, 0, 0, -0.22);
+
+  // neck
+  const neck = new THREE.Group();
+  neck.position.set(0.6, 0.28, 0);
+  neck.rotation.z = -1.05;
+  body.add(neck);
+
+  add(new THREE.BoxGeometry(0.4, 0.8, 0.42), bodyMat, neck, 0, 0.42, 0);
+  for (let i = 0; i < 4; i++) {
+    add(new THREE.BoxGeometry(0.07, 0.16, 0.44), darkMat, neck, 0, 0.1 + i * 0.16, 0, 0, 0, -0.25);
+  }
+
+  // head
+  const head = new THREE.Group();
+  head.position.set(0, 0.8, 0);
+  head.rotation.z = -0.15;
+  neck.add(head);
+
+  add(new THREE.BoxGeometry(0.78, 0.32, 0.36), bodyMat, head, 0.12, 0, 0);
+  add(new THREE.BoxGeometry(0.42, 0.26, 0.3), muzzleMat, head, 0.52, -0.07, 0);
+  add(new THREE.ConeGeometry(0.08, 0.22, 4), darkMat, head, -0.12, 0.27, 0.1, 0.25, 0, -0.25);
+  add(new THREE.ConeGeometry(0.08, 0.22, 4), darkMat, head, -0.12, 0.27, -0.1, -0.25, 0, -0.25);
+  add(new THREE.BoxGeometry(0.07, 0.07, 0.05), darkMat, head, -0.02, 0.06, 0.19);
+  add(new THREE.BoxGeometry(0.07, 0.07, 0.05), darkMat, head, -0.02, 0.06, -0.19);
+  add(new THREE.BoxGeometry(0.12, 0.16, 0.16), darkMat, head, -0.16, 0.2, 0);
+
+  // tail
+  const tail = new THREE.Group();
+  tail.position.set(-1.14, 0.22, 0);
+  tail.rotation.z = -0.7;
+  body.add(tail);
+
+  for (let i = 0; i < 4; i++) {
+    add(new THREE.BoxGeometry(0.06, 0.22 - i * 0.03, 0.06), darkMat, tail, 0, -0.15 - i * 0.18, 0);
+  }
+  add(new THREE.ConeGeometry(0.09, 0.42, 5), darkMat, tail, 0, -0.85, 0);
+
+  // legs
+  const legGeo = new THREE.BoxGeometry(0.15, 0.96, 0.15);
+  const hoofGeo = new THREE.BoxGeometry(0.17, 0.13, 0.17);
+
+  const makeLeg = (x, z) => {
+    const g = new THREE.Group();
+    g.position.set(x, 1.02, z);
+    root.add(g);
+    add(legGeo, legMat, g, 0, -0.45, 0);
+    add(hoofGeo, darkMat, g, 0, -0.9, 0);
+    return g;
+  };
+
+  const FL = makeLeg(0.58, 0.2);
+  const FR = makeLeg(0.58, -0.2);
+  const HL = makeLeg(-0.66, 0.2);
+  const HR = makeLeg(-0.66, -0.2);
+
+  return { root, body, neck, head, tail, FL, FR, HL, HR };
+}
+
+const horse = buildHorse();
+scene.add(horse.root);
+
+// Soft ground shadow under the horse
+const shadowBlob = new THREE.Mesh(
+  new THREE.CircleGeometry(0.95, 20),
+  new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28, depthWrite: false })
+);
+shadowBlob.rotation.x = -Math.PI / 2;
+shadowBlob.position.y = 0.02;
+shadowBlob.renderOrder = 1;
+scene.add(shadowBlob);
+
+// ---- Animation ----
+const R = 10;
+const T = 8;
+const F = 2;
+const clock = new THREE.Clock();
+const { root, body, neck, head, tail, FL, FR, HL, HR } = horse;
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  const t = clock.getElapsedTime();
+  const lt = t % T;
+  const phase = Math.PI * 2 * F * lt;
+  const theta = Math.PI * 2 * (lt / T);
+
+  const bob = 0.05 * Math.sin(2 * phase + 0.8);
+
+  root.position.set(Math.cos(theta) * R, bob, Math.sin(theta) * R);
+  root.rotation.y = -(Math.PI / 2 + theta);
+
+  body.rotation.z = 0.045 * Math.sin(phase + 0.6) + 0.03;
+
+  const A = 0.58;
+  FL.rotation.z = A * Math.sin(phase);
+  FR.rotation.z = A * Math.sin(phase + 0.14);
+  HL.rotation.z = A * Math.sin(phase + Math.PI);
+  HR.rotation.z = A * Math.sin(phase + Math.PI + 0.14);
+
+  neck.rotation.z = -1.05 + 0.06 * Math.sin(2 * phase + 2.0);
+  head.rotation.z = -0.15 + 0.045 * Math.sin(2 * phase + 2.6);
+
+  tail.rotation.z = -0.7 + 0.28 * Math.sin(phase + 2.2);
+  tail.rotation.x = 0.15 * Math.cos(phase + 1.0);
+
+  shadowBlob.position.set(root.position.x, 0.02, root.position.z);
+
+  const camAng = theta - 0.55;
+  const camR = 15.5;
+  camera.position.set(Math.cos(camAng) * camR, 3.6, Math.sin(camAng) * camR);
+  camera.lookAt(root.position.x, 1.2, root.position.z);
+
+  renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+animate();
+</script>
+</body>
+</html>

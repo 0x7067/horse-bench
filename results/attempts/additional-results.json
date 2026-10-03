@@ -1,0 +1,168 @@
+[
+  {
+    "name": "claude-haiku-4.5",
+    "exit_code": 0,
+    "seconds": 25.9,
+    "args": [
+      "--harness",
+      "claude",
+      "--model",
+      "claude-haiku-4-5-20251001",
+      "--output",
+      "output/claude-haiku-4.5"
+    ],
+    "html": "output/claude-haiku-4.5/index.html"
+  },
+  {
+    "name": "codex-luna-6",
+    "exit_code": 0,
+    "seconds": 59.6,
+    "args": [
+      "--harness",
+      "codex",
+      "--model",
+      "gpt-6-luna",
+      "--output",
+      "output/codex-luna-6"
+    ],
+    "html": "output/codex-luna-6/index.html"
+  },
+  {
+    "name": "dsh-deepseek-v4-flash",
+    "exit_code": 0,
+    "seconds": 78.7,
+    "args": [
+      "--harness",
+      "dsh",
+      "--model",
+      "deepseek-v4-flash",
+      "--output",
+      "output/dsh-deepseek-v4-flash"
+    ],
+    "html": "output/dsh-deepseek-v4-flash/index.html"
+  },
+  {
+    "name": "dsh-deepseek-v4-pro",
+    "exit_code": 0,
+    "seconds": 114.3,
+    "args": [
+      "--harness",
+      "dsh",
+      "--model",
+      "deepseek-v4-pro",
+      "--output",
+      "output/dsh-deepseek-v4-pro"
+    ],
+    "html": "output/dsh-deepseek-v4-pro/index.html"
+  },
+  {
+    "name": "pi-deepseek-v4-flash",
+    "exit_code": 0,
+    "seconds": 123.9,
+    "args": [
+      "--harness",
+      "pi",
+      "--model",
+      "deepseek-v4-flash",
+      "--output",
+      "output/pi-deepseek-v4-flash",
+      "--provider",
+      "opencode-go"
+    ],
+    "html": "output/pi-deepseek-v4-flash/index.html"
+  },
+  {
+    "name": "jcode-deepseek-v4-flash",
+    "exit_code": 0,
+    "seconds": 169.7,
+    "args": [
+      "--harness",
+      "jcode",
+      "--model",
+      "deepseek-v4-flash",
+      "--output",
+      "output/jcode-deepseek-v4-flash",
+      "--provider",
+      "opencode-go"
+    ],
+    "html": "output/jcode-deepseek-v4-flash/index.html"
+  },
+  {
+    "name": "pi-deepseek-v4-pro",
+    "exit_code": 0,
+    "seconds": 198.5,
+    "args": [
+      "--harness",
+      "pi",
+      "--model",
+      "deepseek-v4-pro",
+      "--output",
+      "output/pi-deepseek-v4-pro",
+      "--provider",
+      "opencode-go"
+    ],
+    "html": "output/pi-deepseek-v4-pro/index.html"
+  },
+  {
+    "name": "cline-deepseek-v4-flash",
+    "exit_code": 1,
+    "seconds": 226.4,
+    "args": [
+      "--harness",
+      "cline",
+      "--model",
+      "cline-pass/deepseek-v4-flash",
+      "--output",
+      "output/cline-deepseek-v4-flash",
+      "--provider",
+      "cline-pass"
+    ],
+    "html": null
+  },
+  {
+    "name": "cline-deepseek-v4-pro",
+    "exit_code": 1,
+    "seconds": 226.4,
+    "args": [
+      "--harness",
+      "cline",
+      "--model",
+      "cline-pass/deepseek-v4-pro",
+      "--output",
+      "output/cline-deepseek-v4-pro",
+      "--provider",
+      "cline-pass"
+    ],
+    "html": null
+  },
+  {
+    "name": "pi-minimax-m3",
+    "exit_code": 0,
+    "seconds": 319.5,
+    "args": [
+      "--harness",
+      "pi",
+      "--model",
+      "opencode-go/minimax-m3",
+      "--output",
+      "output/pi-minimax-m3"
+    ],
+    "html": "output/pi-minimax-m3/index.html"
+  },
+  {
+    "name": "jcode-deepseek-v4-pro",
+    "exit_code": 0,
+    "seconds": 561.2,
+    "args": [
+      "--harness",
+      "jcode",
+      "--model",
+      "deepseek-v4-pro",
+      "--output",
+      "output/jcode-deepseek-v4-pro",
+      "--provider",
+      "opencode-go"
+    ],
+    "html": "output/jcode-deepseek-v4-pro/index.html"
+  }
+]

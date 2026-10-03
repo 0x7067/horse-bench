@@ -1,0 +1,202 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Low-Poly Running Horse</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 100%);
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB);
+        scene.fog = new THREE.Fog(0x87CEEB, 100, 200);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 3, 8);
+        camera.lookAt(0, 2, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(10, 10, 5);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 2048;
+        directionalLight.shadow.mapSize.height = 2048;
+        scene.add(directionalLight);
+
+        // Ground
+        const groundGeometry = new THREE.PlaneGeometry(200, 200);
+        const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x2d5016 });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.1;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // Horse Group
+        const horse = new THREE.Group();
+        scene.add(horse);
+
+        const horseMaterial = new THREE.MeshPhongMaterial({ color: 0x8B4513 });
+
+        // Body
+        const bodyGeometry = new THREE.BoxGeometry(2, 1.5, 4);
+        const body = new THREE.Mesh(bodyGeometry, horseMaterial);
+        body.position.y = 1.5;
+        body.castShadow = true;
+        body.receiveShadow = true;
+        horse.add(body);
+
+        // Neck
+        const neckGeometry = new THREE.BoxGeometry(0.8, 1.5, 1);
+        const neck = new THREE.Mesh(neckGeometry, horseMaterial);
+        neck.position.set(0, 2.2, 1.2);
+        neck.rotation.z = 0.3;
+        neck.castShadow = true;
+        horse.add(neck);
+
+        // Head
+        const headGeometry = new THREE.BoxGeometry(0.7, 0.8, 1.2);
+        const head = new THREE.Mesh(headGeometry, horseMaterial);
+        head.position.set(0, 2.8, 2.2);
+        head.castShadow = true;
+        horse.add(head);
+
+        // Ears
+        const earGeometry = new THREE.ConeGeometry(0.2, 0.8, 6);
+        const leftEar = new THREE.Mesh(earGeometry, horseMaterial);
+        leftEar.position.set(-0.3, 3.5, 2);
+        leftEar.rotation.z = 0.5;
+        leftEar.castShadow = true;
+        horse.add(leftEar);
+
+        const rightEar = new THREE.Mesh(earGeometry, horseMaterial);
+        rightEar.position.set(0.3, 3.5, 2);
+        rightEar.rotation.z = -0.5;
+        rightEar.castShadow = true;
+        horse.add(rightEar);
+
+        // Tail
+        const tailGeometry = new THREE.BoxGeometry(0.3, 0.5, 2);
+        const tail = new THREE.Mesh(tailGeometry, new THREE.MeshPhongMaterial({ color: 0x654321 }));
+        tail.position.set(0, 1.5, -2);
+        tail.castShadow = true;
+        horse.add(tail);
+
+        // Legs - stored for animation
+        const legLength = 1.8;
+        const legs = [];
+
+        const createLeg = (x, z) => {
+            const legGeometry = new THREE.BoxGeometry(0.35, legLength, 0.35);
+            const leg = new THREE.Mesh(legGeometry, horseMaterial);
+            leg.position.set(x, legLength / 2, z);
+            leg.castShadow = true;
+            horse.add(leg);
+            return {
+                mesh: leg,
+                x: x,
+                z: z,
+                baseY: legLength / 2,
+                group: horse
+            };
+        };
+
+        // Front left, front right, back left, back right
+        legs.push(createLeg(-0.6, 1.2));  // FL
+        legs.push(createLeg(0.6, 1.2));   // FR
+        legs.push(createLeg(-0.6, -1));   // BL
+        legs.push(createLeg(0.6, -1));    // BR
+
+        // Mane
+        const maneGeometry = new THREE.BoxGeometry(0.2, 0.8, 0.5);
+        for (let i = 0; i < 4; i++) {
+            const mane = new THREE.Mesh(maneGeometry, new THREE.MeshPhongMaterial({ color: 0x3d2817 }));
+            mane.position.set(0, 2.5 - i * 0.3, 0.8 + i * 0.4);
+            mane.castShadow = true;
+            horse.add(mane);
+        }
+
+        // Animation loop
+        let time = 0;
+        const cycleTime = 1.2; // seconds for complete running cycle
+
+        function animate() {
+            requestAnimationFrame(animate);
+            time = (time + 0.016) % cycleTime; // Reset after cycle
+            const t = time / cycleTime; // Normalized time 0-1
+
+            // Body bob
+            const bodyBob = Math.sin(t * Math.PI * 2) * 0.15;
+            body.position.y = 1.5 + bodyBob;
+
+            // Head nod
+            const headBob = Math.sin(t * Math.PI * 2) * 0.1;
+            head.position.y = 2.8 + headBob;
+            neck.position.y = 2.2 + bodyBob * 0.8;
+
+            // Tail swing
+            const tailSwing = Math.sin(t * Math.PI * 2 + Math.PI / 2) * 0.3;
+            tail.rotation.y = tailSwing;
+
+            // Animate legs - galloping pattern
+            // Gallop: FL, BR, FR, BL cycle
+            const legPhases = [0, 0.5, 0.5, 0]; // Phase offsets for each leg
+
+            legs.forEach((leg, i) => {
+                const phase = (t + legPhases[i]) % 1;
+                
+                // Swing motion
+                let swing = 0;
+                if (phase < 0.5) {
+                    // Lift and swing forward
+                    swing = Math.sin(phase * Math.PI) * 0.8;
+                } else {
+                    // Push back
+                    swing = Math.sin((phase - 0.5) * Math.PI) * -0.5;
+                }
+
+                leg.mesh.rotation.x = swing * 0.6;
+
+                // Vertical motion
+                const lift = Math.max(0, Math.sin(phase * Math.PI)) * 0.4;
+                leg.mesh.position.y = leg.baseY + lift + bodyBob * 0.5;
+            });
+
+            // Move horse forward
+            horse.position.x = (t - 0.5) * 0.2;
+
+            renderer.render(scene, camera);
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
+```

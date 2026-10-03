@@ -1,0 +1,458 @@
+[supervisor] donsetch mcp --supervised
+dsh: reasoning:
+The user wants a single self-contained HTML file with a low-poly 3D horse running in a seamless loop using Three.js, built procedurally from primitive geometry, animated legs, body, head, and tail. Return only the HTML, no Markdown fences or explanation. Don't write files or use tools.
+
+I should just produce the HTML directly. Let me write a complete Three.js scene.
+
+I need to build a horse procedurally from primitive geometry (boxes, cylinders, cones, spheres), group them into leg segments, body, head, neck, tail, and animate.
+
+Let me think about the structure:
+- Use Three.js from CDN (import map with unpkg or jsdelivr). Use ES modules with importmap for three.
+- Scene, camera, renderer, lights, ground.
+- Horse made of low-poly primitives:
+  - Body: a box or scaled box, maybe a stretched box.
+  - Neck: box angled.
+  - Head: box + cone/box for snout + ears.
+  - Legs: 4 legs, each with upper and lower segment (box), pivot at shoulder/hip. Animate rotation to simulate gallop.
+  - Tail: a group of small boxes or a cone, sway.
+  - Mane maybe.
+
+Animation: gallop cycle. Legs rotate in a cycle with phase offsets. Use sine-based gait. Body bobs up/down, head bobs, tail sways.
+
+Seamless loop: use a time parameter t that cycles with period, and all animation functions are periodic with that period. Camera static or slight orbit.
+
+Let me write the horse with clear pivot groups.
+
+I'll build a Horse class/function that returns a THREE.Group.
+
+Leg structure: each leg is a Group positioned at shoulder/hip. Inside, upper leg mesh rotated so pivot at top. Lower leg is a child group of upper, positioned at knee, with lower mesh. Animate upper leg rotation.x and lower leg rotation.x.
+
+Simplify: For each leg, create a group `leg` at the shoulder point. Add upper box mesh, offset downward. Create `lower` group at the knee (bottom of upper), add lower box offset downward, and a hoof (small box) at bottom.
+
+Animation: 
+- front left, back right phase together (diagonal pair), front right, back left phase together.
+- Gallop: legs swing forward and back.
+
+Use rotation.x on leg group. Legs rotate around x-axis (forward/back). Front legs and back legs pivot.
+
+Let me set up coordinate: horse faces +Z (or -Z). I'll have horse face +X maybe. Let's face +Z direction of travel? Actually I'll place horse running in place on a ground, with a treadmill feel — camera orbits, or ground moves. Simpler: horse runs in place, camera slightly orbits or fixed with subtle movement. Or make the ground plane and have horse gallop in a circle. The requirement is "running in a seamless loop" — running in place with looping gait is acceptable, but "running" implies motion. I could move the horse forward and reset, but seamless loop is easier with in-place gallop + moving ground texture, or move horse along and loop camera. 
+
+I'll do: horse gallops in place (legs animated), and move it forward along -Z with a repeating ground (like a treadmill) so it appears running. Actually simplest seamless: horse stays near origin, runs in place, and the ground/stripes move under it. Or the horse moves forward and when it passes a threshold, snap back — that breaks seamlessness visually.
+
+Best: treadmill effect. Ground plane with moving stripes/particles to sell forward motion, horse gallops in place. Camera follows subtly. I'll add a scrolling ground using a texture offset, and a few low-poly "bushes"/posts that scroll past and loop.
+
+Let me implement a treadmill: create several ground patches or posts that move in +Z direction (toward camera/behind horse) and wrap around. Horse faces -Z (away from camera? or toward). Let's have camera behind/side of horse, horse running toward -Z (into screen), so objects move from -Z to +Z past the horse (toward viewer) giving sense of speed. Posts spawn far at -Z and move toward +Z, wrap.
+
+Actually simpler and clean: horse runs in place at origin, facing +X? Hmm. Let me decide camera: perspective camera positioned to the side-front, looking at horse. Horse runs in place.
+
+For "running" feel, I'll animate the body with vertical bob and slight forward lean oscillation, legs gallop, and move ground features.
+
+Let me just do the treadmill with scrolling posts/tufts. I'll create ~12 low-poly objects (cones for bushes / boxes for rocks) positioned along the ground on both sides, move them in z, and wrap when beyond camera.
+
+Now for the seamless loop: the gait period T = 1.0s (or ~0.9s). All oscillatory motion uses sin/cos with angular frequency 2π/T. Use performance clock time, mod T.
+
+Let me write the code carefully.
+
+Geometry building details (dimensions in arbitrary units):
+
+Horse overall ~ length 2.2 along z? Let me orient horse facing -Z. Define:
+- Body: box width (x) ~0.55, height (y) ~0.7, length (z) ~1.3. Centered at y ~1.0.
+- Neck: from front of body, angled up and forward. Box rotated around x.
+- Head: box, plus snout box/cone.
+- Ears: two small cones.
+- Legs: 4, from shoulders (front, z negative side = front) and hips (back).
+- Tail: cone or group at back, swaying.
+
+Let me set the horse facing -Z, so front is at negative z.
+
+Body center at (0, 1.05, 0). Body length 1.4 along z. Front at z = -0.7, back at z = +0.7.
+
+Shoulders (front legs) at x=±0.28, z=-0.45, y≈1.0. Hips at x=±0.28, z=+0.45, y≈1.05.
+
+Leg upper length ~0.55, lower length ~0.5, hoof ~0.12.
+
+Neck: from (0, 1.15, -0.6) going up-forward to head at (0, 1.7, -1.15). Head box centered (0,1.75,-1.2), snout extends to -1.5.
+
+Tail: at (0, 1.0, 0.75) going back and down, swaying.
+
+Mane: a few boxes along top of neck.
+
+I'll write helper functions to add a box with given dims, position, rotation, color.
+
+Color palette: low-poly look with flat shading. Horse body a warm brown (0x8a5a33 or 0x9b6b43), mane/tail darker (0x4a2f1d), hooves near black, snout lighter. Ground green (0x5a7d3a), sky background gradient maybe.
+
+Use MeshStandardMaterial or MeshLambertMaterial with flatShading: true. Use directional light + ambient + maybe hemisphere. Flat shading on box geometry gives faceted look.
+
+Actually for flat shading, MeshStandardMaterial flatShading true works but box geometry is already flat. Good.
+
+To make it more "low-poly", I could use slightly random vertex jitter, but boxes are fine. Could also use low-segment cylinders for legs? Boxes are cleaner. I'll use boxes and cones (cones with radialSegments 4-6 for low-poly). Tail as cone with 4 radial segments.
+
+Let me also add a slight body roll and pitch for gallop.
+
+Animation math (gallop):
+
+Let phase p = time / T (0..1). Use angle = 2π * p.
+
+For each leg, rotation.x = amplitude * sin(2π*p + phaseOffset). Gallop: front legs and hind legs move together in pairs but with the "leap" — actually in a gallop the sequence is: both front legs and hind legs work in diagonal-ish pairs with a suspension phase. For visual simplicity, use a trot/gallop blend: front-left and hind-right together, front-right and hind-left together (diagonal pairs = trot). But gallop has front pair + hind pair together with suspension. 
+
+I'll do a gallop-like: front legs both swing together, hind legs both swing together, but offset by half cycle, with a body pitch (rocking) like a rocking-horse gallop which reads clearly as "gallop". Rocking horse gallop: front legs and hind legs move in opposite phases, body rocks.
+
+Simplify to a convincing loop:
+- frontLeft and frontRight: rotation.x = A*sin(wt) (together)
+- hindLeft and hindRight: rotation.x = A*sin(wt + π) (opposite)
+- lower leg (knee/hock) bend: lowerLeg.rotation.x = -B * max(0, sin(wt + phase))... to add bend during swing. Use a bend that lags.
+
+Actually a nice gallop: legs also fold (knee bend) when swinging forward. I'll add knee flexion via a second sine.
+
+Let me define per-leg:
+- upper angle: swing = A*sin(wt + φ)
+- knee angle (lower relative to upper): knee = K * (something) — bend backward.
+
+For hind legs and front legs, knee bend direction differs but in our forward/back rotation along x axis, bending is rotation.x too (lower folds backward = negative rotation relative). 
+
+I'll implement lower leg bend as: lowerGroup.rotation.x = C * (0.5 + 0.5*sin(wt + φ + 0.9)) to fold during forward swing. Keep it simple: lower.rotation.x = C * max(0, cos(wt+φ)) — fold on one half.
+
+Body bob: y = base + B*sin(2wt) (two bounces per cycle) plus slight pitch = P*sin(wt + offset).
+
+Head bob: head group rotation slight to counter body.
+
+Tail sway: tail.rotation.y = small sin, rotation.x = small sin with phase.
+
+Mane: static attached to neck/head group, will move with head.
+
+Let me set T = 0.9s for a lively gallop, A = 0.7 rad for leg swing.
+
+I'll now write full HTML. Use importmap pointing to jsdelivr three 0.160 or unpkg. Use module script.
+
+CDN: use unpkg three@0.160.0/build/three.module.js via importmap:
+```html
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}
+</script>
+```
+
+Add OrbitControls? Not necessary; user asked for running horse loop. I'll add gentle auto camera orbit for visual interest, or fixed camera. I'll add a slight camera sway. Keep it self-contained without OrbitControls to avoid extra dependency. Fixed camera with subtle movement.
+
+Actually a slow orbit would be nice but requires controls or manual. I can manually rotate camera in animation loop around Y with small radius. Let's do a slow orbit: camera.position set from angle θ, look at horse center. θ advances slowly. That's a nice loop too, but the "seamless loop" mostly refers to the run cycle. I'll keep camera mostly fixed with slight bob to keep focus on horse, plus a gentle orbit maybe. I'll do a very slow orbit (one full rev per ~40s) — fine.
+
+Let me also add fog or gradient background. Use scene.background = new THREE.Color(sky) or a gradient via large plane. I'll set background color and add a soft ground.
+
+Ground: large circle/plane, green. Add moving features.
+
+Let me write the whole thing now.
+
+I'll write a buildHorse() function.
+
+Implementation details:
+
+```js
+function box(w,h,d,color){
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d),
+     new THREE.MeshStandardMaterial({color, flatShading:true, roughness:0.8}));
+  m.castShadow = true; m.receiveShadow = true;
+  return m;
+}
+```
+
+Legs: 
+```js
+function makeLeg(color, hoofColor){
+  const leg = new THREE.Group();
+  const upper = box(0.16, 0.5, 0.16, color);
+  upper.position.y = -0.25;
+  leg.add(upper);
+  const knee = new THREE.Group();
+  knee.position.y = -0.5;
+  leg.add(knee);
+  const lower = box(0.12, 0.45, 0.12, color);
+  lower.position.y = -0.2;
+  knee.add(lower);
+  const hoof = box(0.14, 0.12, 0.16, hoofColor);
+  hoof.position.y = -0.45;
+  knee.add(hoof);
+  return {leg, knee};
+}
+```
+
+Position legs at shoulders/hips. Front legs pivot x=±0.26, z=-0.45, y=1.0 (top). Hind y=1.05.
+
+For rotation: leg.rotation.x positive rotates lower part... in Three.js, rotation around x: positive rotates +y toward +z? Let me recall: rotation.x positive tilts top toward viewer if looking... It doesn't matter much, I'll just animate and it looks like forward/back swing; direction sign just affects phase. I'll test mentally: rotation.x = A*sin → legs swing forward/back. Fine.
+
+To make legs swing forward/back along z (direction of travel), rotating around x axis is correct (legs extend downward along -y, rotate about x-axis swings them in y-z plane, i.e., forward/back along z). Good.
+
+Neck and head as separate groups so head can bob:
+```js
+const neckGroup = new THREE.Group();
+neckGroup.position.set(0, 1.15, -0.6);
+const neck = box(0.4, 0.55, 0.4, color); 
+neck.rotation.x = 0.6; // tilt forward
+```
+Hmm, I'll build neck as a box rotated. Place neck group, add neck mesh rotated x ~ 0.5 (lean forward toward -z... wait forward is -z). Rotating +x tilts top toward +z (backward). To lean forward (top toward -z), rotation.x negative. I'll just tune sign.
+
+Let me define forward = -Z. Head should be at negative z beyond front of body.
+
+Neck base at (0, 1.2, -0.5). Neck length ~0.7 going up-forward at ~45°. Head center around (0, 1.6, -1.0).
+
+I'll make neck a box (0.38 x 0.7 x 0.32) positioned and rotated -0.7 around x, placed at (0,1.25,-0.55). Then head group at top of neck.
+
+This is getting fiddly; I'll just build and eyeball reasonable numbers, tune signs.
+
+Head group at (0, 1.65, -1.0):
+- skull box (0.34, 0.3, 0.5) centered at (0,0.05,0)
+- snout box (0.26, 0.22, 0.4) at (0,-0.02,-0.42)
+- ears: two cones at (±0.12, 0.3, 0) rotated slight
+- eyes: two tiny dark boxes? optional. Add small spheres/boxes for eyes for charm.
+
+Mane: series of small boxes along top of neck and head.
+
+Tail group at (0, 1.0, 0.72): cone or tapered box pointing back-down, rotation.
+
+I'll make tail from 3 stacked boxes to suggest a low-poly tail, in a group `tail` that sways.
+
+Let me finalize numbers and write.
+
+For a cleaner approach, I'll set overall horse scale and group `horse` that I can rotate. Horse faces -Z.
+
+Let me write body: body box dims (0.6, 0.62, 1.35) at (0, 1.0, 0). Chest slightly bigger? keep simple.
+
+Front of body z = -0.675, back z=0.675.
+
+Shoulders at z=-0.4, hips z=+0.45.
+
+Leg y top: shoulder y = 1.0 (so legs hang from body bottom ~0.7). upper leg length 0.5 => knee at y~0.5, lower 0.45 + hoof => ground at y~0. So leg group position.y should be about 0.95 (body bottom). Let's set front leg group position (x, 0.95, z). Upper box length 0.5 centered -0.25 => spans 0.7..0.2. knee at -0.5 => y 0.45. lower box 0.45 centered -0.2 => spans 0.25..0.05? hoof at -0.42 => y ~0.03. Ground y=0. Slight float; tune to touch.
+
+Let me make upper length 0.52, lower 0.46, hoof 0.12, positions so bottom of hoof ~ y 0.02. Good enough.
+
+Hind legs slightly longer/thicker.
+
+I'll now also add subtle body y-bob around base.
+
+Let me write the final file. I'll keep code clean, no comments per AGENTS (but this is a user deliverable HTML; comments guidance says do not add code comments — I'll avoid comments).
+
+Renderer: antialias, shadows on, shadow map size moderate, set pixel ratio.
+
+Lights: hemisphere light (sky 0xbfd8ff, ground 0x3f5a2a, intensity 0.8), directional sun (0xffffff, 1.2) at (8,12,6) castShadow.
+
+Ground: circle radius 40, color 0x4c6b34, receiveShadow. Also a subtle second tone? Keep simple.
+
+Treadmill features: create ~16 objects (rocks = dodecahedron/icosahedron low detail, bushes = cone with 5 segments, fence posts = thin boxes) distributed along z from -30 to +10 on both sides x=±3..7, y small. Each frame move z += speed*dt; when z > 15, wrap to z -= span. Span = 40. This gives continuous motion.
+
+Actually to sell running toward -Z (horse facing -Z, running forward = -Z), the ground should move toward +Z (past the horse, toward camera). So features move +Z. Good: speed positive.
+
+Set speed ~ 6 units/sec.
+
+Camera: position (5, 3.2, 7), look at (0,1.0,0). Slight orbit: rotate camera around y slowly, radius 8, height 3.2. lookAt(0,1.05,0). Add slight bob matching gait? Could add small camera y sin. Keep small.
+
+Let me also make horse body lean forward slightly (rotation.x = -0.08) and add pitch oscillation.
+
+Now, writing the animation:
+
+```js
+const T = 0.85;
+let t = 0;
+const w = Math.PI*2/T;
+function anim(){
+  const dt = clock.getDelta();
+  t += dt;
+  // loop t for cleanliness not needed since sin periodic
+  const th = t * w; // full cycle angle
+  const A = 0.62; // swing amplitude
+  // gallop: front pair vs hind pair opposite
+  const front = Math.sin(th);
+  const hind  = Math.sin(th + Math.PI);
+  legs.forEach((L,i)=>{
+     const isHind = i>=2;
+     L.leg.rotation.x = (isHind? hind : front) * A;
+     // knee fold
+     const fold = Math.max(0, Math.cos(th + (isHind? Math.PI*0.5:0))) * 0.9;
+     L.knee.rotation.x = fold;
+  });
+```
+
+Hmm need knee fold to bend correct direction. With leg hanging -y, knee group at bottom of upper. lower+hoof are children of knee extending down -y. knee.rotation.x positive rotates lower leg backward (toward +z). Folding should be backward (hoof kicks back) during power phase. Let me fold backward during stance/backswing. Sign tuning: I'll set knee.rotation.x = -fold where fold positive bends backward if needed. I'll just pick sign that looks natural: during forward swing the leg straightens, during backward push the knee flexes. 
+
+Honestly for a stylized low-poly gallop, simpler is: upper legs swing with sine, knees flex with a phase-lagged sine. I'll use:
+
+knee.rotation.x = - (0.5 + 0.5*Math.cos(th + phase)) * 1.0  ... 
+
+I'll tune: front knee folds when front leg swings back (sin negative). Let front = sin(th). Leg forward = positive sin (say). Knee flex = max(0, -sin(th)) * 1.1 for front → flexes during backswing. Hind similarly with its own phase.
+
+I'll implement fold = Math.max(0, -swing) * K. That folds knee when the leg is on the backward half. K~1.0.
+
+Then lower leg swings back under body — looks like a gallop gather. Good enough.
+
+Body bob: y = baseY + 0.08*Math.sin(2*th) (two per cycle). Pitch: bodyPitch = 0.12*Math.sin(th + 0.3) — rocking. Apply to body group (neck/head/tail are children of body group so they rock too; head has own counter-bob). Actually attach neck & head to a torso group so pitch moves them; then head group adds own bob to stabilize.
+
+Head bob: headGroup.rotation.x = -0.15*Math.sin(th + 0.3) to counter, plus small nod.
+
+Tail: tail.rotation.y = 0.25*Math.sin(th+1.0); tail.rotation.x = 0.15*Math.sin(2*th + 0.5) + base.
+
+Let me structure hierarchy:
+
+horse (root, positioned, rotated to face -Z, gets y bob via position.y)
+  └ torso (gets pitch rotation.x)
+      ├ body mesh
+      ├ neckGroup (position at chest, contains neck mesh + mane)
+      │    └ headGroup (position at top of neck, contains skull, snout, ears, eyes, forelock mane; gets bob)
+      ├ tailGroup (gets sway)
+      ├ 4 leg groups (position at shoulders/hips; each contains upper, knee->lower, hoof)
+
+Legs should be children of horse (root) not torso? If children of torso, pitch would move leg pivots, which is okay-ish but legs swing in torso frame; better legs attach to torso so they rock with body — but then body pitch changes leg angle baseline, causing feet to leave ground. Simpler: legs as children of horse root (so pivot fixed), torso pitch just visually rocks body above legs. That's a classic rocking-horse look and reads well. But legs pivoting at fixed shoulder while body rocks could look disconnected. Given low-poly stylization, keep legs on root with their own swing; torso pitch small (0.12 rad) is fine.
+
+Actually a rocking-horse gallop has body pitch and legs all attached to rocking body. Hmm. I'll attach legs to root (horse) and keep torso pitch modest; visual will be fine.
+
+Wait, if legs on root and torso pitches, the neck+head (on torso) rock with pitch which is good (head goes down when body rocks forward etc.). Legs stay. Fine.
+
+Let me set baseY for horse group: horse.position.y = bobY (computed each frame) plus overall lift. I'll set horse at origin; body mesh centered at y=1.0 within torso; torso at y=0. Legs positioned with their y at pivot.
+
+Let me code positions relative to horse root (y=0 at ground):
+
+- torso group at (0,1.0,0) → pitch around its origin (center of body). Body mesh centered at (0,0,0) in torso, dims (0.6,0.62,1.35). So body center at world y=1.0.
+- neckGroup child of torso at (0,0.25,-0.62). Neck mesh inside tilted.
+- headGroup child of neckGroup at top.
+- tailGroup child of torso at (0,-0.1,0.7).
+- legs child of horse root at (±0.26, 1.0, -0.4) front, (±0.27, 1.02, 0.42) hind.
+
+Hmm front shoulder y ~ body bottom 0.69 (body center 1.0 minus half height 0.31 = 0.69). Leg pivot should be ~0.72 so legs hang. Set leg group y=0.72 for front, 0.78 hind (body slightly deeper). Let me set:
+front leg pivot y = 0.7, hind pivot y = 0.74.
+
+Leg total length from pivot to ground ~0.7 to 0.74. upper 0.34 + lower 0.34 + hoof 0.1 ≈ 0.78. Tune hoof bottom to ~0.02 above ground at rest. Since legs swing, feet will lift naturally. Good.
+
+Let me define upper length 0.34, lower length 0.34, hoof 0.1. Upper box centered -0.17 (spans pivot-0.34). knee at -0.34. lower centered -0.17 within knee (spans -0.34..-0.68). hoof centered -0.72? Within knee: hoof at y=-0.66 (center) height 0.12 spans -0.60..-0.72 relative to knee. Knee world y = pivot -0.34. So hoof bottom world y = pivot -0.34 -0.72 = pivot -1.06. With pivot 0.7 → -0.36, below ground! Too long. 
+
+Total needed ~ pivot y (0.7). So upper+lower+hoof ≈ 0.7. upper 0.3, lower 0.3, hoof 0.1 = 0.7. Let me set upper length 0.30 centered -0.15; knee at -0.30. lower length 0.30 centered -0.15 → spans -0.30..-0.60. hoof height 0.10 centered at -0.62 → spans -0.57..-0.67. Hoof bottom world = 0.7 -0.30 -0.67 = -0.27? No: hoof bottom relative to knee = -0.67; knee world y = pivot-0.30 = 0.4; hoof bottom = 0.4 -0.67 = -0.27. Still below 0.
+
+I need legs to reach ground: pivot at 0.7, need total ~0.7 from pivot to ground. upper 0.3 + lower 0.3 + hoof 0.1 = 0.7 but hoof bottom should land exactly at 0 → hoof bottom relative to pivot = -0.7. With knee at -0.30 (world 0.4), lower spans knee-local -0.30..-0.60 (world 0.1..-0.2), hoof local centered -0.62 spans -0.57..-0.67 → world -0.17..-0.27. Bottom -0.27 → below ground by 0.27. So lengths too big: I keep adding because lower centered at -0.15 extends 0.15 below knee and hoof centered -0.62.
+
+Let me just carefully compute with cumulative offsets:
+- pivot world y = P.
+- upper: length Lu, center at -Lu/2. bottom of upper (knee) = -Lu.
+- knee group origin at -Lu.
+- lower: length Ll, center at -Ll/2 → spans 0..-Ll in knee-local. bottom of lower = -Ll.
+- hoof: height Lh, center at -(Ll + Lh/2). bottom = -(Ll+Lh).
+
+Total from pivot to hoof bottom = Lu + Ll + Lh.
+
+Want = P (so hoof bottom = P - P = 0). P=0.7 → Lu+Ll+Lh = 0.7. Choose Lu=0.3, Ll=0.3, Lh=0.1. 
+
+Upper center y = -0.15. Knee at y=-0.30. Lower center y (knee-local) = -0.15. Hoof center knee-local = -(0.30+0.05) = -0.35. Hoof bottom = -0.40 (knee-local) → world = -0.30 + -0.40 = -0.70 = -P. 
+
+At rest hoof bottom = 0. Good. With rotation, feet lift. 
+
+Hind legs slightly longer: pivot P=0.74, use Lu=0.32,Ll=0.30,Lh=0.12 → total 0.74. Fine, or just reuse same but higher pivot means hind feet float 0.04 — acceptable since horse leans; but for ground contact, keep same total length 0.7 for all and set hind pivot 0.7 too. Simpler: all pivots 0.7, all legs identical length 0.7. Hind legs positioned a bit higher looks natural but feet would float. I'll keep all pivots at 0.70 for simplicity and vary only position/thickness. Actually slight variation in thickness is enough.
+
+Let me also add a chest/barrel? Not needed.
+
+Neck/head positioning: 
+neckGroup at torso-local (0, 0.2, -0.58). Inside, neck mesh: box(0.34, 0.55, 0.34), rotation.x = -0.75 (lean forward -z? negative x tilts +y toward -z? Let's verify rotation about x: positive angle rotates y toward z? Using right-hand rule, rotation about +x rotates +y toward +z. So to tilt top toward -z, use negative rotation.x. So neck.rotation.x = -0.7 leans neck forward. Good.)
+
+Neck mesh position (0, 0.25, 0) so it rises from base. headGroup at (0, 0.55, -0.1) roughly top-front of neck. Tune: I'll set headGroup.position = (0, 0.5, -0.15) child of neckGroup, and rotate headGroup slightly to align.
+
+Given complexity, I'll just place numbers and accept a stylized horse.
+
+Head (child of headGroup, origin at neck-head joint):
+- skull box(0.3,0.26,0.42) at (0,0.05,-0.15)
+- snout box(0.22,0.2,0.34) at (0,-0.02,-0.42)
+- ears: cone(0.07,0.2,5) at (±0.09,0.32,-0.05), rotation.x slight
+- eyes: box(0.04,0.05,0.02) dark at (±0.12,0.08,-0.3)
+- forelock mane small.
+
+Mane: along neck top and head top: 4-5 boxes(0.05,0.2,0.2) dark at positions along neck.
+
+Tail: tailGroup at torso (0,-0.1,0.68). Inside, tail base box(0.1,0.1,0.1) then 3 tapered boxes extending back (+z) and down, or a cone(0.08,0.7,5) rotation.x = 0.9 pointing back-down. Use cone rotated: cone default points +y. rotate x by ~1.2 to point back/down, position accordingly. Low-poly with 5 radial segments.
+
+I'll make tail a single cone plus a small base, all inside tailGroup, and sway the group.
+
+Colors:
+- body 0x8a5a2f (brown)
+- dark (mane/tail/hooves) 0x2e1c12
+- snout 0xc9a06a? maybe lighter 0x9a7148. 
+- eye 0x1a1a1a
+- ground 0x4d6b33
+- sky 0xbfdcf0
+
+Let me also add subtle rim/color variety: belly lighter? skip.
+
+Now write final code. I'll be careful with importmap and module.
+
+Also add resize handler.
+
+Shadows: renderer.shadowMap.enabled = true; type PCFSoft. Directional light castShadow with camera bounds ~ (-10..10). 
+
+Let me write the full HTML now.
+
+I also want a nice ground with a subtle grid? Keep flat color + moving objects.
+
+Moving objects: create array of meshes with base z, x, type. Each frame: obj.position.z += speed*dt; if > wrapZ reset to -spanZ. Keep x and y fixed. Put some on left (x negative) and right (x positive), plus a few near center as distant reference? Since horse is at center, objects pass beside. Good.
+
+Span: z from -40 to +12, wrap when z > 12 → z -= 52.
+
+I'll generate N=18 objects with random x in [±3..8], random z in [-40..12], random y=0, scale random. Types: rock (icosahedron detail0, gray), bush (cone 6 seg green dark), fence (box tall thin brown). 
+
+Fences moving on both sides as horizontal rails? Keep bushes/rocks/short posts.
+
+Also maybe add subtle dust? skip.
+
+Camera orbit: theta = t*0.15 rad/s; radius=8.2; height=3.0; cam.x = sin(theta)*radius; cam.z = cos(theta)*radius; lookAt(0,1.0,0). Add slight vertical bob.
+
+Let me write it.
+
+One more: seamless loop — since all motion is periodic in t with period T and camera orbit period = 2π/0.15 ≈ 41.9s, technically camera orbit not synced to gait but that's fine; "seamless loop" refers to the run cycle. The gait loops seamlessly every T. Good. I'll ensure no modulo jumps in visuals.
+
+Write final answer as raw HTML only.
+
+Let me produce the code.
+
+I'll double-check the fold sign and overall look by reasoning; can't run. Keep amplitudes moderate to avoid gimbal weirdness.
+
+Let me finalize numbers and write.
+
+For legs array, store {group (leg), knee}.
+
+Front legs x=±0.26, z=-0.42; hind x=±0.27, z=+0.40. pivot y=0.70 all. But body bottom is at 1.0-0.31=0.69, so pivot 0.70 is just below body bottom — shoulders near bottom edge. Good, legs emerge from under body.
+
+Actually front shoulder is higher on a horse; but fine.
+
+Now write.
+
+I'll also give the horse a slight forward lean: horse.rotation.x? horse root faces -Z; leaning forward = rotate around x negative? The whole horse pitch handled by torso group. I'll set torso.rotation.x base = -0.06 (lean forward slightly, since negative x rotates +y toward -z = lean forward). Wait torso forward is -z; leaning forward means top goes toward -z → rotation.x negative. Good.
+
+During gallop add pitch oscillation: torso.rotation.x = -0.06 + 0.12*sin(th + 0.4).
+
+Head counter-bob: headGroup.rotation.x = -0.10*sin(th+0.4) -0.15 (base tilt to keep head level). Let me set headGroup base rotation.x = -0.2 (to align head) plus nod.
+
+Hmm neckGroup rotation vs headGroup: I'll build neck with rotation.x=-0.7 on the mesh, neckGroup has no rotation; headGroup placed at top. headGroup base rotation.x = 0.6 to counter neck lean so head faces forward-ish. Plus bob.
+
+I'll tune: neck mesh rotation.x = -0.75 (lean forward). The top of neck (local +y after rotation) points forward-up. headGroup at neckGroup.local (0, 0.55, -0.1). headGroup.rotation.x = 0.5 to bring head level. Then head meshes (skull/snout) built aligned to -z (forward). Add bob to headGroup.rotation.x.
+
+Let me just write and accept stylization.
+
+Final code below.
+
+Actually, let me reconsider the neck geometry to reduce guesswork: I'll make the neck a group rotated once (neckGroup.rotation.x = -0.7) containing a vertical box (0.34,0.6,0.34) centered at (0,0.3,0) (so it rises from origin), and the head as a child at (0,0.6,0) of neckGroup. Then headGroup.rotation.x = 0.7 to counteract neck tilt → head points forward. This is cleaner: head meshes extend toward -z.
+
+So:
+- neckGroup (child of torso) at (0,0.25,-0.55), rotation.x = -0.7.
+- neck mesh box(0.34,0.62,0.34) at (0,0.3,0).
+- headGroup (child of neckGroup) at (0,0.62,-0.02), rotation.x = 0.7 (counter), then animated nod.
+- head meshes in headGroup extending -z.
+
+Mane boxes along neck: add to neckGroup at (0,0.5,0.0) etc., slightly above.
+
+Good.
+
+Let me write final. I'll include mane on neck and a bit on head.
+
+Writing now. I'll produce only HTML in final answer.
+
+Let me make sure to not include markdown fences.
+
+Code:
+
+I'll write it out fully.
+
+Let me also ensure ground receives moving objects shadows minimally; objects castShadow true.
+
+I'll write a helper to create materials once for perf.
+
+Final.

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Low-Poly Horse — Seamless Gallop</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0e1526; }
+  canvas { display: block; }
+  #hud {
+    position: fixed; left: 14px; bottom: 12px;
+    font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: #8ea3c4; letter-spacing: 0.04em; opacity: 0.7;
+    pointer-events: none; user-select: none;
+  }
+</style>
+</head>
+<body>
+<div id="hud">drag to orbit &middot; scroll to zoom</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0e1526);
+scene.fog = new THREE.Fog(0x0e1526, 9, 26);
+
+const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 120);
+camera.position.set(4.2, 2.5, 5.6);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1.35, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.075;
+controls.minDistance = 2.6;
+controls.maxDistance = 15;
+controls.maxPolarAngle = Math.PI * 0.495;
+controls.enablePan = false;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.45;
+controls.update();
+
+scene.add(new THREE.HemisphereLight(0x9dc0ff, 0x141c2b, 1.1));
+
+const key = new THREE.DirectionalLight(0xfff1d6, 2.6);
+key.position.set(5.5, 8.5, 4.5);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.near = 1;
+key.shadow.camera.far = 34;
+key.shadow.camera.left = -6;
+key.shadow.camera.right = 6;
+key.shadow.camera.top = 6;
+key.shadow.camera.bottom = -6;
+key.shadow.bias = -0.0008;
+key.shadow.normalBias = 0.02;
+scene.add(key);
+
+const rim = new THREE.DirectionalLight(0x6fa4ff, 1.2);
+rim.position.set(-7, 4, -6);
+scene.add(rim);
+
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(34, 56),
+  new THREE.MeshStandardMaterial({ color: 0x1b2a3a, roughness: 1, metalness: 0, flatShading: true })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const coat = new THREE.MeshStandardMaterial({ color: 0xb5643a, roughness: 0.82, metalness: 0.05, flatShading: true });
+const dark = new THREE.MeshStandardMaterial({ color: 0x2a1f18, roughness: 0.9, metalness: 0.02, flatShading: true });
+const hoofMat = new THREE.MeshStandardMaterial({ color: 0x191614, roughness: 0.55, metalness: 0.15, flatShading: true });
+
+function part(geo, mat, x = 0, y = 0, z = 0) {
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(x, y, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+const trunkMat = new THREE.MeshStandardMaterial({ color: 0x2b2218, roughness: 1, flatShading: true });
+const leafMat = new THREE.MeshStandardMaterial({ color: 0x27402c, roughness: 1, flatShading: true });
+
+for (let i = 0; i < 16; i++) {
+  const a = (i / 16) * Math.PI * 2 + 0.4;
+  const r = 9.5 + ((i * 7) % 5) * 1.2;
+  const s = 0.85 + ((i * 13) % 5) * 0.16;
+  const tree = new THREE.Group();
+  const h = 2.2 * s;
+  tree.add(part(new THREE.BoxGeometry(0.22 * s, h, 0.22 * s), trunkMat, 0, h / 2, 0));
+  const canopy = new THREE.Mesh(new THREE.ConeGeometry(0.95 * s, 1.9 * s, 6), leafMat);
+  canopy.position.y = h + 0.7 * s;
+  canopy.castShadow = true;
+  canopy.receiveShadow = true;
+  tree.add(canopy);
+  tree.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+  scene.add(tree);
+}
+
+const horse = new THREE.Group();
+scene.add(horse);
+
+const pivot = new THREE.Group();
+pivot.position.y = 1.45;
+horse.add(pivot);
+
+const body = new THREE.Group();
+body.position.y = -1.45;
+pivot.add(body);
+
+body.add(part(new THREE.BoxGeometry(0.70, 0.78, 1.30), coat, 0, 1.50, -0.05));
+body.add(part(new THREE.BoxGeometry(0.62, 0.74, 0.62), coat, 0, 1.52, 0.60));
+body.add(part(new THREE.BoxGeometry(0.74, 0.80, 0.66), coat, 0, 1.52, -0.78));
+body.add(part(new THREE.BoxGeometry(0.24, 0.36, 0.34), coat, -0.24, 1.16, 0.58));
+body.add(part(new THREE.BoxGeometry(0.24, 0.36, 0.34), coat, 0.24, 1.16, 0.58));
+body.add(part(new THREE.BoxGeometry(0.28, 0.46, 0.42), coat, -0.27, 1.12, -0.66));
+body.add(part(new THREE.BoxGeometry(0.28, 0.46, 0.42), coat, 0.27, 1.12, -0.66));
+
+const neck = new THREE.Group();
+neck.position.set(0, 1.80, 0.52);
+neck.rotation.x = 0.75;
+body.add(neck);
+neck.add(part(new THREE.CylinderGeometry(0.17, 0.27, 0.80, 6), coat, 0, 0.40, 0));
+
+for (let i = 0; i < 4; i++) {
+  const plate = part(new THREE.BoxGeometry(0.07, 0.24, 0.16), dark, 0, 0.14 + i * 0.20, -0.26 + i * 0.025);
+  plate.rotation.x = -0.10;
+  neck.add(plate);
+}
+
+const head = new THREE.Group();
+head.position.set(0, 0.80, 0.02);
+head.rotation.x = -0.72;
+neck.add(head);
+
+head.add(part(new THREE.BoxGeometry(0.28, 0.30, 0.46), coat, 0, 0.04, 0.14));
+head.add(part(new THREE.BoxGeometry(0.22, 0.22, 0.28), coat, 0, -0.04, 0.44));
+head.add(part(new THREE.BoxGeometry(0.23, 0.23, 0.08), dark, 0, -0.04, 0.58));
+
+for (const s of [-1, 1]) {
+  const ear = part(new THREE.ConeGeometry(0.07, 0.20, 4), coat, s * 0.10, 0.26, -0.06);
+  ear.rotation.z = -s * 0.14;
+  head.add(ear);
+  head.add(part(new THREE.BoxGeometry(0.05, 0.06, 0.06), dark, s * 0.145, 0.09, 0.24));
+}
+
+const tailRoot = new THREE.Group();
+tailRoot.position.set(0, 1.72, -1.04);
+tailRoot.rotation.x = 0.50;
+body.add(tailRoot);
+
+const tailSegs = [];
+let tailParent = tailRoot;
+for (let i = 0; i < 3; i++) {
+  const seg = new THREE.Group();
+  seg.position.y = i === 0 ? 0 : -0.34;
+  const w = 0.17 - i * 0.04;
+  seg.add(part(new THREE.BoxGeometry(w, 0.38, w), dark, 0, -0.19, 0));
+  tailParent.add(seg);
+  tailSegs.push(seg);
+  tailParent = seg;
+}
+
+function buildLeg(side, front) {
+  const upperLen = 0.52;
+  const lowerLen = 0.50;
+
+  const hip = new THREE.Group();
+  hip.position.set(side * (front ? 0.24 : 0.27), 1.20, front ? 0.58 : -0.66);
+  body.add(hip);
+  hip.add(part(new THREE.CylinderGeometry(0.115, 0.085, upperLen, 6), coat, 0, -upperLen / 2, 0));
+
+  const knee = new THREE.Group();
+  knee.position.y = -upperLen;
+  hip.add(knee);
+  knee.add(part(new THREE.CylinderGeometry(0.075, 0.055, lowerLen, 6), coat, 0, -lowerLen / 2, 0));
+  knee.add(part(new THREE.BoxGeometry(0.15, 0.13, 0.20), hoofMat, 0, -lowerLen - 0.055, 0.015));
+
+  return { hip, knee };
+}
+
+const gait = [
+  { leg: buildLeg(-1, false), phase: 0.00, swing: 0.62, flex: 1.25, base: 0.10 },
+  { leg: buildLeg(1, false), phase: 0.10, swing: 0.62, flex: 1.25, base: 0.10 },
+  { leg: buildLeg(-1, true), phase: 0.46, swing: 0.50, flex: 1.00, base: 0.04 },
+  { leg: buildLeg(1, true), phase: 0.56, swing: 0.50, flex: 1.00, base: 0.04 }
+];
+
+const PERIOD = 0.78;
+const clock = new THREE.Clock();
+
+renderer.setAnimationLoop(() => {
+  const t = (clock.getElapsedTime() / PERIOD) % 1;
+  const w = t * Math.PI * 2;
+
+  pivot.position.y = 1.45 + 0.075 * Math.sin(w + 1.1);
+  pivot.rotation.x = 0.055 * Math.sin(w + 1.9);
+  pivot.rotation.z = 0.03 * Math.sin(w);
+
+  for (const g of gait) {
+    const p = (t - g.phase) * Math.PI * 2;
+    const swing = Math.sin(p);
+    const fold = Math.max(0, Math.sin(p));
+    g.leg.hip.rotation.x = -swing * g.swing;
+    g.leg.knee.rotation.x = g.base + fold * fold * g.flex;
+  }
+
+  neck.rotation.x = 0.75 + 0.10 * Math.sin(w + Math.PI + 0.9);
+  head.rotation.x = -0.72 - (neck.rotation.x - 0.75);
+
+  tailRoot.rotation.x = 0.50 + 0.10 * Math.sin(w + 0.6);
+  tailRoot.rotation.z = 0.09 * Math.sin(w + 1.4);
+  tailSegs.forEach((seg, i) => {
+    seg.rotation.z = 0.14 * Math.sin(w - i * 0.8);
+    seg.rotation.x = 0.12 * Math.sin(w - i * 0.9 + 1.2);
+  });
+
+  controls.update();
+  renderer.render(scene, camera);
+});
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>

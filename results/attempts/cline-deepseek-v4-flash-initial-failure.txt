@@ -1,0 +1,1 @@
+Installed Cline binary hung before producing output. The same startup hang occurred with --help. Stopped after 226 seconds. ClinePass was selected; provider inference was not reached.
