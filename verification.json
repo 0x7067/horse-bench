@@ -437,6 +437,108 @@
     ],
     "cache_header": "max-age=600",
     "navigation": "all gallery and overlay links include build version",
-    "limit": "Missing controls were not reproduced in fresh Chrome; user browser cache cause remains unconfirmed."
+    "limit": "Missing controls were not reproduced in fresh Chrome; user browser cache cause remains unconfirmed.",
+    "live_after_cache_link_update": [
+      {
+        "page": "index",
+        "status": 200,
+        "matches": true
+      },
+      {
+        "page": "claude-haiku-4.5/",
+        "status": 200,
+        "matches": true
+      },
+      {
+        "page": "claude-opus-5.5-high/",
+        "status": 200,
+        "matches": true
+      },
+      {
+        "page": "claude-sonnet-5.5-high/",
+        "status": 200,
+        "matches": true
+      },
+      {
+        "page": "codex-luna-6/",
+        "status": 200,
+        "matches": true
+      },
+      {
+        "page": "codex-sol-5.6-high/",
+        "status": 200,
+        "matches": true
+      },
+      {
+        "page": "codex-sol-6.1-high/",
+        "status": 200,
+        "matches": true
+      },
+      {
+        "page": "jcode-deepseek-v4-flash/",
+        "status": 200,
+        "matches": true
+      },
+      {
+        "page": "jcode-deepseek-v4-pro/",
+        "status": 200,
+        "matches": true
+      },
+      {
+        "page": "jcode-glm-5.3-flash/",
+        "status": 200,
+        "matches": true
+      },
+      {
+        "page": "jcode-space-bunny/",
+        "status": 200,
+        "matches": true
+      },
+      {
+        "page": "pi-deepseek-v4-flash/",
+        "status": 200,
+        "matches": true
+      },
+      {
+        "page": "pi-deepseek-v4-pro/",
+        "status": 200,
+        "matches": true
+      },
+      {
+        "page": "pi-minimax-m3/",
+        "status": 200,
+        "matches": true
+      },
+      {
+        "page": "pi-muse-1.3/",
+        "status": 200,
+        "matches": true
+      },
+      {
+        "page": "pi-swe-2/",
+        "status": 200,
+        "matches": true
+      },
+      {
+        "page": "cline-deepseek-v4-flash/",
+        "status": 200,
+        "matches": true
+      },
+      {
+        "page": "cline-deepseek-v4-pro/",
+        "status": 200,
+        "matches": true
+      },
+      {
+        "page": "dsh-deepseek-v4-flash/",
+        "status": 200,
+        "matches": true
+      },
+      {
+        "page": "dsh-deepseek-v4-pro/",
+        "status": 200,
+        "matches": true
+      }
+    ]
   }
 }
