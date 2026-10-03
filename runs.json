@@ -1,0 +1,135 @@
+[
+  {
+    "name": "claude-haiku-4.5",
+    "harness": "claude",
+    "model": "claude-haiku-4-5-20251001",
+    "effort": "default",
+    "provider": null
+  },
+  {
+    "name": "claude-opus-5.5-high",
+    "harness": "claude",
+    "model": "claude-opus-5-5",
+    "effort": "high",
+    "provider": null
+  },
+  {
+    "name": "claude-sonnet-5.5-high",
+    "harness": "claude",
+    "model": "claude-sonnet-5-5",
+    "effort": "high",
+    "provider": null
+  },
+  {
+    "name": "codex-luna-6",
+    "harness": "codex",
+    "model": "gpt-6-luna",
+    "effort": "default",
+    "provider": null
+  },
+  {
+    "name": "codex-sol-5.6-high",
+    "harness": "codex",
+    "model": "gpt-5.6-sol",
+    "effort": "high",
+    "provider": null
+  },
+  {
+    "name": "codex-sol-6.1-high",
+    "harness": "codex",
+    "model": "gpt-6.1-sol",
+    "effort": "high",
+    "provider": null
+  },
+  {
+    "name": "jcode-deepseek-v4-flash",
+    "harness": "jcode",
+    "model": "deepseek-v4-flash",
+    "effort": "default",
+    "provider": "opencode-go"
+  },
+  {
+    "name": "jcode-deepseek-v4-pro",
+    "harness": "jcode",
+    "model": "deepseek-v4-pro",
+    "effort": "default",
+    "provider": "opencode-go"
+  },
+  {
+    "name": "jcode-glm-5.3-flash",
+    "harness": "jcode",
+    "model": "glm-5.3-flash",
+    "effort": "default",
+    "provider": "zai"
+  },
+  {
+    "name": "jcode-space-bunny",
+    "harness": "jcode",
+    "model": "stealth/space-bunny-alpha",
+    "effort": "default",
+    "provider": "openrouter"
+  },
+  {
+    "name": "pi-deepseek-v4-flash",
+    "harness": "pi",
+    "model": "deepseek-v4-flash",
+    "effort": "default",
+    "provider": "opencode-go"
+  },
+  {
+    "name": "pi-deepseek-v4-pro",
+    "harness": "pi",
+    "model": "deepseek-v4-pro",
+    "effort": "default",
+    "provider": "opencode-go"
+  },
+  {
+    "name": "pi-minimax-m3",
+    "harness": "pi",
+    "model": "opencode-go/minimax-m3",
+    "effort": "default",
+    "provider": "opencode-go"
+  },
+  {
+    "name": "pi-muse-1.3",
+    "harness": "pi",
+    "model": "opencode-go/muse-spark-1.3-contributor",
+    "effort": "default",
+    "provider": "opencode-go"
+  },
+  {
+    "name": "pi-swe-2",
+    "harness": "pi",
+    "model": "devin/swe-2",
+    "effort": "default",
+    "provider": "devin"
+  },
+  {
+    "name": "cline-deepseek-v4-flash",
+    "harness": "cline",
+    "model": "cline-pass/deepseek-v4.1-flash",
+    "effort": "default",
+    "provider": "cline-pass"
+  },
+  {
+    "name": "cline-deepseek-v4-pro",
+    "harness": "cline",
+    "model": "cline-pass/deepseek-v4-pro",
+    "effort": "default",
+    "provider": "cline-pass"
+  },
+  {
+    "name": "dsh-deepseek-v4-flash",
+    "harness": "dsh",
+    "model": "deepseek-v4-flash",
+    "effort": "default",
+    "provider": "deepseek-official"
+  },
+  {
+    "name": "dsh-deepseek-v4-pro",
+    "harness": "dsh",
+    "model": "deepseek-v4-pro",
+    "effort": "default",
+    "provider": "deepseek-official"
+  }
+]
