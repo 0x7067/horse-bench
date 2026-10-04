@@ -1,0 +1,64 @@
+build_index.py
+  s_4143daec646749::t_88fa304a7aa07e 3,10,30,55
+backlog.md
+  s_4143daec646749::t_1ca8e18204e0a5 5
+  s_4143daec646749::t_709e35e5656eb4 4
+docs/claude-haiku-4.5/index.html
+  s_4143daec646749::t_bf594a1e87ec73 199
+docs/claude-opus-5.5-high/index.html
+  s_4143daec646749::t_8a50b4587cdeb9 382
+docs/claude-sonnet-5.5-high/index.html
+  s_4143daec646749::t_ac8ec4fee258ed 331
+docs/cline-deepseek-v4-flash/index.html
+  s_4143daec646749::t_b01efecc9ddc97 524
+docs/cline-deepseek-v4-pro/index.html
+  s_4143daec646749::t_34a5641f00dc62 267
+docs/codex-luna-6/index.html
+  s_4143daec646749::t_9fa2eaf4f02b0a 191
+docs/codex-sol-5.6-high/index.html
+  s_4143daec646749::t_e4a84e28c68a91 380
+docs/codex-sol-6.1-high/index.html
+  s_4143daec646749::t_c54bb0ee09d3db 625
+docs/dsh-deepseek-v4-flash/index.html
+  s_4143daec646749::t_34d2aca3da315e 247
+docs/dsh-deepseek-v4-pro/index.html
+  s_4143daec646749::t_9a3a7b144e4e53 310
+docs/index.html
+  s_4143daec646749::t_bbb221cf52bb1f 13-31
+docs/jcode-deepseek-v4-flash/index.html
+  s_4143daec646749::t_0b7d4877ecd9e7 329
+docs/jcode-deepseek-v4-pro/index.html
+  s_4143daec646749::t_8e20f3c2dead2e 312
+docs/jcode-glm-5.3-flash/index.html
+  s_4143daec646749::t_cfd11cdc3ee3ff 195
+docs/jcode-space-bunny/index.html
+  s_4143daec646749::t_8a2c0b1523ce79 755
+docs/pi-deepseek-v4-flash/index.html
+  s_4143daec646749::t_e28b52f27d530b 276
+docs/pi-deepseek-v4-pro/index.html
+  s_4143daec646749::t_f50dd5acded938 264
+docs/pi-minimax-m3/index.html
+  s_4143daec646749::t_b5bbdca3a69769 228
+docs/pi-muse-1.3/index.html
+  s_4143daec646749::t_2ecb59dbe54164 309
+docs/pi-swe-2/index.html
+  s_4143daec646749::t_2c4061f2556621 308
+verification.json
+  s_4143daec646749::t_ece389602f2984 356-440
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c159d10b1eeae632b811a9b5cdf8f95e20bc0160",
+  "prompts": {},
+  "sessions": {
+    "s_4143daec646749": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a101fd-11d8-7481-aa5a-a701257bed23",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Pedro Guimarães <21346846+0x7067@users.noreply.github.com>"
+    }
+  }
+}
