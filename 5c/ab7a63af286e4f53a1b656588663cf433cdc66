@@ -1,0 +1,19 @@
+backlog.md
+  s_4143daec646749::t_fc286d66951108 6-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5cab7a63af286e4f53a1b656588663cf433cdc66",
+  "prompts": {},
+  "sessions": {
+    "s_4143daec646749": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a101fd-11d8-7481-aa5a-a701257bed23",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Pedro Guimarães <21346846+0x7067@users.noreply.github.com>"
+    }
+  }
+}
